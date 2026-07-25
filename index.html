@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lịch xuất hàng</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, -apple-system, "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif; }
+  .cal-scroll::-webkit-scrollbar { width: 6px; }
+  .cal-scroll::-webkit-scrollbar-thumb { background: #d4d4d4; border-radius: 3px; }
+  .spin { animation: sp 0.8s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="bg-white text-[#37352f]">
+
+<!-- ============================================================= -->
+<!-- ⚙️  DÁN LINK APPS SCRIPT CỦA BẠN VÀO ĐÂY (giữa 2 dấu nháy)     -->
+<!-- ============================================================= -->
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbx8oq1FU2SStQjK7KarSTzqrZJYxlx2o4g9t-hab7XiaEI-pi0f_P8DZME1tVWsBJzdpw/exec";
+</script>
+
+<div class="max-w-[1400px] mx-auto px-6 py-6">
+
+  <!-- Meta actions -->
+  <div class="flex items-center gap-5 text-[13px] text-[#9b9a97] mb-3">
+    <span>📦 Lịch giao hàng dùng chung</span>
+  </div>
+
+  <!-- Title -->
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-[40px] font-bold tracking-tight">LỊCH XUẤT HÀNG</h1>
+    <button id="refreshBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#e0e0e0] hover:bg-[#f5f5f4] text-[13px]">
+      <span id="refreshIcon">↻</span> Làm mới
+    </button>
+  </div>
+
+  <!-- View tabs -->
+  <div class="flex items-center justify-between mb-3 border-b border-[#ededec] pb-2">
+    <div class="flex items-center gap-1">
+      <button class="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[14px] font-medium text-[#37352f] border-b-2 border-[#37352f]">📅 Lịch</button>
+    </div>
+    <div id="statusBar" class="text-[13px] text-[#9b9a97]">Đang tải dữ liệu…</div>
+  </div>
+
+  <!-- Month nav -->
+  <div class="flex items-center justify-between mb-2">
+    <h2 id="monthLabel" class="text-[15px] font-semibold">—</h2>
+    <div class="flex items-center gap-2 text-[13px]">
+      <button id="prevBtn" class="p-1 px-2 rounded hover:bg-[#f5f5f4] text-[#9b9a97]">‹</button>
+      <button id="earliestBtn" class="px-2 py-1 rounded hover:bg-[#f5f5f4] text-[#2383e2]">Tới đơn sớm nhất</button>
+      <button id="todayBtn" class="px-2 py-1 rounded hover:bg-[#f5f5f4]">Hôm nay</button>
+      <button id="nextBtn" class="p-1 px-2 rounded hover:bg-[#f5f5f4] text-[#9b9a97]">›</button>
+    </div>
+  </div>
+
+  <!-- Weekday header -->
+  <div class="grid grid-cols-7 border-t border-l border-[#ededec]">
+    <div class="text-center text-[12px] text-[#9b9a97] py-1.5 border-r border-[#ededec]">Thứ 2</div>
+    <div class="text-center text-[12px] text-[#9b9a97] py-1.5 border-r border-[#ededec]">Thứ 3</div>
+    <div class="text-center text-[12px] text-[#9b9a97] py-1.5 border-r border-[#ededec]">Thứ 4</div>
+    <div class="text-center text-[12px] text-[#9b9a97] py-1.5 border-r border-[#ededec]">Thứ 5</div>
+    <div class="text-center text-[12px] text-[#9b9a97] py-1.5 border-r border-[#ededec]">Thứ 6</div>
+    <div class="text-center text-[12px] text-[#9b9a97] py-1.5 border-r border-[#ededec]">Thứ 7</div>
+    <div class="text-center text-[12px] text-[#9b9a97] py-1.5 border-r border-[#ededec]">CN</div>
+  </div>
+
+  <!-- Calendar grid -->
+  <div id="calGrid" class="grid grid-cols-7 border-l border-[#ededec]"></div>
+
+</div>
+
+<script>
+// ================= STATE =================
+let events = [];           // dữ liệu từ Sheet
+let viewYear, viewMonth;   // tháng đang xem (month 0-indexed)
+
+const MONTH_NAMES = ["tháng 1","tháng 2","tháng 3","tháng 4","tháng 5","tháng 6","tháng 7","tháng 8","tháng 9","tháng 10","tháng 11","tháng 12"];
+
+// ================= HELPERS =================
+// Đọc ngày giờ linh hoạt: chịu được nhiều định dạng khác nhau
+function parseDT(s) {
+  if (!s) return null;
+  s = String(s).trim();
+
+  // 1) MM/DD/YYYY HH:mm  (định dạng gốc mong đợi)
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+  if (m) return new Date(+m[3], +m[1]-1, +m[2], +m[4], +m[5]);
+
+  // 2) MM/DD/YYYY (không có giờ)
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return new Date(+m[3], +m[1]-1, +m[2]);
+
+  // 3) ISO: YYYY-MM-DD[ T]HH:mm
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T\s](\d{1,2}):(\d{2})/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]);
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+
+  // 4) Kiểu chuỗi Date của JS: "Thu Sep 04 2025 11:00:00 GMT+0700 (...)"
+  //    Tự tách thủ công để không phụ thuộc ngôn ngữ (vd "Giờ Đông Dương").
+  const MONTHS = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  m = s.match(/\b([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m && MONTHS[m[1]] !== undefined) {
+    return new Date(+m[3], MONTHS[m[1]], +m[2], +m[4], +m[5], +(m[6]||0));
+  }
+  // Dạng chỉ có ngày kiểu "Sep 04 2025" hoặc "Thu Sep 04 2025"
+  m = s.match(/\b([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{4})/);
+  if (m && MONTHS[m[1]] !== undefined) {
+    return new Date(+m[3], MONTHS[m[1]], +m[2]);
+  }
+
+  // 5) Cuối cùng mới để JS tự phân tích (chỉ khi các cách trên thất bại)
+  let d = new Date(s);
+  if (!isNaN(d.getTime())) return d;
+
+  return null;
+}
+function dateKey(d) {
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0');
+}
+function timeStr(d) {
+  return String(d.getHours()).padStart(2,'0')+":"+String(d.getMinutes()).padStart(2,'0');
+}
+// Hiển thị ngày giờ gọn dạng MM/DD/YYYY HH:mm dù nguồn ở kiểu nào
+function displayDT(d) {
+  if (!d) return '';
+  return String(d.getMonth()+1).padStart(2,'0')+"/"+String(d.getDate()).padStart(2,'0')+"/"+d.getFullYear()
+    +" "+String(d.getHours()).padStart(2,'0')+":"+String(d.getMinutes()).padStart(2,'0');
+}
+function setStatus(msg) { document.getElementById('statusBar').textContent = msg; }
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ================= LOAD DATA (JSONP - tránh lỗi CORS) =================
+function loadData() {
+  if (API_URL.startsWith("DÁN")) {
+    setStatus("⚠️ Chưa cấu hình link Apps Script — đang hiển thị dữ liệu mẫu.");
+    events = SAMPLE.map(e => ({...e, _dt: parseDT(e.datetime)}));
+    goToLatestMonth();
+    render();
+    return;
+  }
+  setStatus("Đang tải dữ liệu…");
+
+  // Tạo callback toàn cục để Apps Script gọi lại
+  const cbName = "jsonpCb_" + Date.now();
+  const timeout = setTimeout(() => {
+    setStatus("✗ Quá thời gian chờ. Kiểm tra lại quyền truy cập của Apps Script (Anyone).");
+    cleanup();
+  }, 20000);
+
+  function cleanup() {
+    delete window[cbName];
+    if (script && script.parentNode) script.parentNode.removeChild(script);
+  }
+
+  window[cbName] = function(data) {
+    clearTimeout(timeout);
+    try {
+      events = (data.events || []).map(e => ({...e, _dt: parseDT(e.datetime)}));
+      setStatus(`✓ Đã tải ${events.length} đơn hàng`);
+      goToLatestMonth();
+      render();
+    } catch (err) {
+      setStatus("✗ Lỗi xử lý dữ liệu.");
+      console.error(err);
+    }
+    cleanup();
+  };
+
+  const script = document.createElement('script');
+  script.src = API_URL + (API_URL.indexOf('?') >= 0 ? '&' : '?') + "callback=" + cbName + "&t=" + Date.now();
+  script.onerror = () => {
+    clearTimeout(timeout);
+    setStatus("✗ Không tải được dữ liệu. Kiểm tra lại link Apps Script.");
+    cleanup();
+  };
+  document.body.appendChild(script);
+}
+
+function goToLatestMonth() {
+  // Nhảy tới tháng của đơn có NGÀY SỚM NHẤT (không phải đơn đầu danh sách)
+  const withDt = events.filter(e => e._dt).sort((a, b) => a._dt - b._dt);
+  if (withDt.length) {
+    const d = withDt[0]._dt;
+    viewYear = d.getFullYear(); viewMonth = d.getMonth();
+  } else {
+    const now = new Date();
+    viewYear = now.getFullYear(); viewMonth = now.getMonth();
+  }
+}
+
+// ================= TOGGLE DONE =================
+async function toggleDone(ev) {
+  const newVal = !ev.done;
+  ev.done = newVal;              // cập nhật ngay trên màn hình
+  render();
+  if (API_URL.startsWith("DÁN")) return; // chế độ demo, không ghi
+  try {
+    await fetch(API_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "toggle", code: ev.code, datetime: ev.datetime, done: newVal })
+    });
+    setStatus("✓ Đã lưu vào Google Sheet");
+  } catch (err) {
+    setStatus("✗ Lưu thất bại, thử lại.");
+    ev.done = !newVal; render();
+  }
+}
+
+// ================= LƯU GHI CHÚ =================
+async function saveNote(ev, newNote) {
+  const old = ev.note || '';
+  if (newNote === old) return;
+  ev.note = newNote;
+  if (API_URL.startsWith("DÁN")) { render(); return; }
+  setStatus("Đang lưu ghi chú…");
+  try {
+    await fetch(API_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "note", code: ev.code, datetime: ev.datetime, note: newNote })
+    });
+    setStatus("✓ Đã lưu ghi chú vào Google Sheet");
+  } catch (err) {
+    setStatus("✗ Lưu ghi chú thất bại.");
+    ev.note = old;
+  }
+  render();
+}
+
+// ================= RENDER =================
+function eventCard(ev) {
+  const doneIcon = ev.done
+    ? `<span class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] bg-[#448361] text-white text-[10px] leading-none mr-1 shrink-0">✓</span>`
+    : '';
+  const checkbox = ev.done
+    ? `<span class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] bg-[#448361] text-white text-[10px] leading-none">✓</span>`
+    : `<span class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] border-2 border-[#c7c7c5]"></span>`;
+  const noteText = ev.note || '';
+  const noteClass = noteText ? 'text-[#787774]' : 'text-[#c7c7c5] italic';
+  const noteDisplay = noteText || '+ Thêm ghi chú';
+
+  const card = document.createElement('div');
+  card.className = "bg-white border border-[#ededec] rounded-md px-2 py-1.5 mb-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_1px_4px_rgba(0,0,0,0.10)] transition-shadow";
+  card.innerHTML = `
+    <div class="flex items-start justify-between gap-1">
+      <div class="flex items-center min-w-0">${doneIcon}<span class="font-bold text-[13px] truncate">${ev.code}</span></div>
+      <span class="text-[11px] text-[#9b9a97] shrink-0">${ev._dt ? timeStr(ev._dt) : ''}</span>
+    </div>
+    <div class="text-[11px] text-[#787774] mt-1">${ev._dt ? displayDT(ev._dt) : escapeHtml(ev.datetime)}</div>
+    <div class="flex items-center gap-1 mt-1 text-[11px] cursor-pointer select-none toggle">${checkbox}<span>${ev.status || 'Giao hàng'}</span></div>
+    <div class="note-box text-[11px] ${noteClass} mt-1 leading-snug cursor-text hover:bg-[#f5f5f4] rounded px-0.5 -mx-0.5" title="Bấm để sửa ghi chú">${escapeHtml(noteDisplay)}</div>
+  `;
+  card.querySelector('.toggle').addEventListener('click', () => toggleDone(ev));
+
+  // Bấm vào ghi chú -> biến thành ô nhập
+  const noteBox = card.querySelector('.note-box');
+  noteBox.addEventListener('click', () => {
+    const ta = document.createElement('textarea');
+    ta.value = ev.note || '';
+    ta.rows = 2;
+    ta.className = "w-full text-[11px] text-[#37352f] mt-1 border border-[#2383e2] rounded px-1 py-0.5 outline-none resize-none";
+    ta.placeholder = "Nhập ghi chú…";
+    noteBox.replaceWith(ta);
+    ta.focus();
+    const commit = () => saveNote(ev, ta.value.trim());
+    ta.addEventListener('blur', commit);
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ta.blur(); }
+      if (e.key === 'Escape') { ta.value = ev.note || ''; ta.blur(); }
+    });
+  });
+
+  return card;
+}
+
+function render() {
+  document.getElementById('monthLabel').textContent = MONTH_NAMES[viewMonth] + " năm " + viewYear;
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  const firstDay = new Date(viewYear, viewMonth, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7; // Mon=0
+  const gridStart = new Date(viewYear, viewMonth, 1 - startOffset);
+
+  // gom đơn theo ngày
+  const byDay = {};
+  events.forEach(ev => {
+    if (!ev._dt) return;
+    const k = dateKey(ev._dt);
+    (byDay[k] = byDay[k] || []).push(ev);
+  });
+  Object.values(byDay).forEach(list => list.sort((a,b)=>a._dt-b._dt));
+
+  const todayKey = dateKey(new Date());
+
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    const key = dateKey(d);
+    const inMonth = d.getMonth() === viewMonth;
+    const dayEvents = byDay[key] || [];
+
+    const cell = document.createElement('div');
+    cell.className = "border-r border-b border-[#ededec] min-h-[150px] p-2 " + (inMonth ? "bg-white" : "bg-[#fbfbfa]");
+
+    const head = document.createElement('div');
+    head.className = "flex items-center justify-end mb-1.5";
+    const isToday = key === todayKey;
+    head.innerHTML = `<span class="text-[12px] ${isToday ? 'bg-[#2383e2] text-white rounded-full w-5 h-5 flex items-center justify-center' : (inMonth ? 'text-[#37352f]' : 'text-[#c7c7c5]')}">${d.getDate()}</span>`;
+    cell.appendChild(head);
+
+    const list = document.createElement('div');
+    list.className = "cal-scroll";
+    dayEvents.forEach(ev => list.appendChild(eventCard(ev)));
+    cell.appendChild(list);
+
+    grid.appendChild(cell);
+  }
+}
+
+// ================= CONTROLS =================
+document.getElementById('prevBtn').onclick = () => { viewMonth--; if (viewMonth<0){viewMonth=11;viewYear--;} render(); };
+document.getElementById('nextBtn').onclick = () => { viewMonth++; if (viewMonth>11){viewMonth=0;viewYear++;} render(); };
+document.getElementById('todayBtn').onclick = () => { const n=new Date(); viewYear=n.getFullYear(); viewMonth=n.getMonth(); render(); };
+document.getElementById('earliestBtn').onclick = () => { goToLatestMonth(); render(); };
+document.getElementById('refreshBtn').onclick = () => loadData();
+
+// ================= DỮ LIỆU MẪU (chỉ hiện khi chưa gắn link) =================
+const SAMPLE = [
+  {code:"SPI 2664", datetime:"06/29/2026 13:00", status:"Giao hàng", note:"", done:false},
+  {code:"ND 2664", datetime:"06/29/2026 14:00", status:"Giao hàng", note:"", done:false},
+  {code:"LA 2656", datetime:"06/29/2026 14:00", status:"Giao hàng", note:"1 phần giao tháng 6, 1 phần giao th...", done:false},
+  {code:"VTM 2698", datetime:"06/29/2026 15:00", status:"Giao hàng", note:"", done:true},
+  {code:"HV 2629", datetime:"06/30/2026 15:00", status:"Giao hàng", note:"", done:false},
+  {code:"HV KM 2606-01", datetime:"06/30/2026 16:00", status:"Giao hàng", note:"", done:true},
+  {code:"ICARE KM 2606-01", datetime:"07/01/2026 15:00", status:"Giao hàng", note:"", done:false},
+  {code:"VTM 2699", datetime:"07/02/2026 15:00", status:"Giao hàng", note:"", done:false},
+  {code:"ND 2665", datetime:"07/03/2026 13:00", status:"Giao hàng", note:"", done:true},
+];
+
+// khởi động
+loadData();
+</script>
+
+</body>
+</html>
