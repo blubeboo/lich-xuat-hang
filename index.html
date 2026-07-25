@@ -25,32 +25,27 @@
 <div class="max-w-[1400px] mx-auto px-6 py-6">
 
   <!-- Meta actions -->
-  <div class="flex items-center gap-5 text-[13px] text-[#9b9a97] mb-3">
-    <span>📦 Lịch giao hàng dùng chung</span>
-  </div>
-
   <!-- Title -->
-  <div class="flex items-center justify-between mb-4">
-    <h1 class="text-[40px] font-bold tracking-tight">LỊCH XUẤT HÀNG</h1>
-    <button id="refreshBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#e0e0e0] hover:bg-[#f5f5f4] text-[13px]">
+  <div class="relative flex items-center justify-center mb-4">
+    <h1 class="text-[40px] font-bold tracking-tight text-center">LỊCH XUẤT HÀNG</h1>
+    <button id="refreshBtn" class="absolute right-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#e0e0e0] hover:bg-[#f5f5f4] text-[13px]">
       <span id="refreshIcon">↻</span> Làm mới
     </button>
   </div>
 
-  <!-- View tabs -->
-  <div class="flex items-center justify-between mb-3 border-b border-[#ededec] pb-2">
-    <div class="flex items-center gap-1">
-      <button class="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[14px] font-medium text-[#37352f] border-b-2 border-[#37352f]">📅 Lịch</button>
-    </div>
+  <!-- Status bar -->
+  <div class="flex items-center justify-end mb-3 border-b border-[#ededec] pb-2">
     <div id="statusBar" class="text-[13px] text-[#9b9a97]">Đang tải dữ liệu…</div>
   </div>
 
   <!-- Month nav -->
   <div class="flex items-center justify-between mb-2">
-    <h2 id="monthLabel" class="text-[15px] font-semibold">—</h2>
+    <div class="flex items-center gap-3">
+      <h2 id="monthLabel" class="text-[15px] font-semibold">—</h2>
+      <span id="overdueBadge" class="hidden text-[12px] text-[#e03e3e] bg-[#fdecec] border border-[#f5c2c2] rounded-md px-2 py-0.5"></span>
+    </div>
     <div class="flex items-center gap-2 text-[13px]">
       <button id="prevBtn" class="p-1 px-2 rounded hover:bg-[#f5f5f4] text-[#9b9a97]">‹</button>
-      <button id="earliestBtn" class="px-2 py-1 rounded hover:bg-[#f5f5f4] text-[#2383e2]">Tới đơn sớm nhất</button>
       <button id="todayBtn" class="px-2 py-1 rounded hover:bg-[#f5f5f4]">Hôm nay</button>
       <button id="nextBtn" class="p-1 px-2 rounded hover:bg-[#f5f5f4] text-[#9b9a97]">›</button>
     </div>
@@ -140,7 +135,7 @@ function loadData() {
   if (API_URL.startsWith("DÁN")) {
     setStatus("⚠️ Chưa cấu hình link Apps Script — đang hiển thị dữ liệu mẫu.");
     events = SAMPLE.map(e => ({...e, _dt: parseDT(e.datetime)}));
-    goToLatestMonth();
+    if (viewYear === undefined) goToToday();
     render();
     return;
   }
@@ -163,7 +158,7 @@ function loadData() {
     try {
       events = (data.events || []).map(e => ({...e, _dt: parseDT(e.datetime)}));
       setStatus(`✓ Đã tải ${events.length} đơn hàng`);
-      goToLatestMonth();
+      if (viewYear === undefined) goToToday();
       render();
     } catch (err) {
       setStatus("✗ Lỗi xử lý dữ liệu.");
@@ -182,16 +177,9 @@ function loadData() {
   document.body.appendChild(script);
 }
 
-function goToLatestMonth() {
-  // Nhảy tới tháng của đơn có NGÀY SỚM NHẤT (không phải đơn đầu danh sách)
-  const withDt = events.filter(e => e._dt).sort((a, b) => a._dt - b._dt);
-  if (withDt.length) {
-    const d = withDt[0]._dt;
-    viewYear = d.getFullYear(); viewMonth = d.getMonth();
-  } else {
-    const now = new Date();
-    viewYear = now.getFullYear(); viewMonth = now.getMonth();
-  }
+function goToToday() {
+  const now = new Date();
+  viewYear = now.getFullYear(); viewMonth = now.getMonth();
 }
 
 // ================= TOGGLE DONE =================
@@ -237,27 +225,40 @@ async function saveNote(ev, newNote) {
 }
 
 // ================= RENDER =================
+function isOverdue(ev) {
+  // Quá hạn = có ngày, ngày giờ giao đã qua thời điểm hiện tại, và chưa giao
+  return ev._dt && !ev.done && ev._dt.getTime() < Date.now();
+}
+
 function eventCard(ev) {
-  const doneIcon = ev.done
-    ? `<span class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] bg-[#448361] text-white text-[10px] leading-none mr-1 shrink-0">✓</span>`
-    : '';
+  const overdue = isOverdue(ev);
+
+  // Màu nền cả thẻ theo trạng thái
+  let cardBg = "bg-white border-[#ededec]";
+  if (ev.done) cardBg = "bg-[#eaf5ec] border-[#bfe0c6]";       // xanh lá nhạt: đã giao
+  else if (overdue) cardBg = "bg-[#fdecec] border-[#f5c2c2]";  // đỏ nhạt: quá hạn chưa giao
+
   const checkbox = ev.done
-    ? `<span class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] bg-[#448361] text-white text-[10px] leading-none">✓</span>`
-    : `<span class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] border-2 border-[#c7c7c5]"></span>`;
+    ? `<span class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] bg-[#448361] text-white text-[10px] leading-none shrink-0">✓</span>`
+    : `<span class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] border-2 ${overdue ? 'border-[#e03e3e]' : 'border-[#c7c7c5]'} shrink-0"></span>`;
+
+  const statusText = ev.done ? 'Đã giao' : (overdue ? 'Quá hạn' : (ev.status || 'Giao hàng'));
+  const statusColor = ev.done ? 'text-[#2a6d3c]' : (overdue ? 'text-[#e03e3e] font-medium' : 'text-[#37352f]');
+
   const noteText = ev.note || '';
   const noteClass = noteText ? 'text-[#787774]' : 'text-[#c7c7c5] italic';
   const noteDisplay = noteText || '+ Thêm ghi chú';
 
   const card = document.createElement('div');
-  card.className = "bg-white border border-[#ededec] rounded-md px-2 py-1.5 mb-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_1px_4px_rgba(0,0,0,0.10)] transition-shadow";
+  card.className = `border rounded-md px-2 py-1.5 mb-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_1px_4px_rgba(0,0,0,0.10)] transition-shadow ${cardBg}`;
   card.innerHTML = `
     <div class="flex items-start justify-between gap-1">
-      <div class="flex items-center min-w-0">${doneIcon}<span class="font-bold text-[13px] truncate">${ev.code}</span></div>
+      <span class="font-bold text-[13px] break-words leading-snug">${escapeHtml(ev.code)}</span>
       <span class="text-[11px] text-[#9b9a97] shrink-0">${ev._dt ? timeStr(ev._dt) : ''}</span>
     </div>
     <div class="text-[11px] text-[#787774] mt-1">${ev._dt ? displayDT(ev._dt) : escapeHtml(ev.datetime)}</div>
-    <div class="flex items-center gap-1 mt-1 text-[11px] cursor-pointer select-none toggle">${checkbox}<span>${ev.status || 'Giao hàng'}</span></div>
-    <div class="note-box text-[11px] ${noteClass} mt-1 leading-snug cursor-text hover:bg-[#f5f5f4] rounded px-0.5 -mx-0.5" title="Bấm để sửa ghi chú">${escapeHtml(noteDisplay)}</div>
+    <div class="flex items-center gap-1 mt-1 text-[11px] cursor-pointer select-none toggle ${statusColor}">${checkbox}<span>${statusText}</span></div>
+    <div class="note-box text-[11px] ${noteClass} mt-1 leading-snug cursor-text hover:bg-black/5 rounded px-0.5 -mx-0.5" title="Bấm để sửa ghi chú">${escapeHtml(noteDisplay)}</div>
   `;
   card.querySelector('.toggle').addEventListener('click', () => toggleDone(ev));
 
@@ -286,6 +287,18 @@ function render() {
   document.getElementById('monthLabel').textContent = MONTH_NAMES[viewMonth] + " năm " + viewYear;
   const grid = document.getElementById('calGrid');
   grid.innerHTML = '';
+
+  // Đếm đơn quá hạn (chưa giao, đã qua ngày) trong tháng đang xem
+  const overdueList = events.filter(ev =>
+    isOverdue(ev) && ev._dt.getFullYear() === viewYear && ev._dt.getMonth() === viewMonth
+  );
+  const badge = document.getElementById('overdueBadge');
+  if (overdueList.length > 0) {
+    badge.textContent = "⚠ " + overdueList.length + " đơn quá hạn chưa giao";
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
 
   const firstDay = new Date(viewYear, viewMonth, 1);
   const startOffset = (firstDay.getDay() + 6) % 7; // Mon=0
@@ -330,8 +343,7 @@ function render() {
 // ================= CONTROLS =================
 document.getElementById('prevBtn').onclick = () => { viewMonth--; if (viewMonth<0){viewMonth=11;viewYear--;} render(); };
 document.getElementById('nextBtn').onclick = () => { viewMonth++; if (viewMonth>11){viewMonth=0;viewYear++;} render(); };
-document.getElementById('todayBtn').onclick = () => { const n=new Date(); viewYear=n.getFullYear(); viewMonth=n.getMonth(); render(); };
-document.getElementById('earliestBtn').onclick = () => { goToLatestMonth(); render(); };
+document.getElementById('todayBtn').onclick = () => { goToToday(); render(); };
 document.getElementById('refreshBtn').onclick = () => loadData();
 
 // ================= DỮ LIỆU MẪU (chỉ hiện khi chưa gắn link) =================
