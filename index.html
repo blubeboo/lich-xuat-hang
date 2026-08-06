@@ -232,18 +232,21 @@ function isOverdue(ev) {
 
 function eventCard(ev) {
   const overdue = isOverdue(ev);
+  // "Chờ xuất": ghi chú chứa chữ "chờ xuất" và chưa tích giao
+  const waiting = !ev.done && (ev.note || '').toLowerCase().includes('chờ xuất');
 
-  // Màu nền cả thẻ theo trạng thái
+  // Màu nền cả thẻ theo trạng thái (ưu tiên: đã giao > chờ xuất > quá hạn)
   let cardBg = "bg-white border-[#ededec]";
   if (ev.done) cardBg = "bg-[#eaf5ec] border-[#bfe0c6]";       // xanh lá nhạt: đã giao
+  else if (waiting) cardBg = "bg-[#e7f0fb] border-[#c2d8f2]";  // xanh dương pastel: chờ xuất
   else if (overdue) cardBg = "bg-[#fdecec] border-[#f5c2c2]";  // đỏ nhạt: quá hạn chưa giao
 
   const checkbox = ev.done
     ? `<span class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] bg-[#448361] text-white text-[10px] leading-none shrink-0">✓</span>`
-    : `<span class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] border-2 ${overdue ? 'border-[#e03e3e]' : 'border-[#c7c7c5]'} shrink-0"></span>`;
+    : `<span class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] border-2 ${overdue ? 'border-[#e03e3e]' : (waiting ? 'border-[#3b7ad4]' : 'border-[#c7c7c5]')} shrink-0"></span>`;
 
-  const statusText = ev.done ? 'Đã giao' : (overdue ? 'Quá hạn' : (ev.status || 'Giao hàng'));
-  const statusColor = ev.done ? 'text-[#2a6d3c]' : (overdue ? 'text-[#e03e3e] font-medium' : 'text-[#37352f]');
+  const statusText = ev.done ? 'Đã giao' : (waiting ? 'Chờ xuất' : (overdue ? 'Quá hạn' : (ev.status || 'Giao hàng')));
+  const statusColor = ev.done ? 'text-[#2a6d3c]' : (waiting ? 'text-[#2f66b3] font-medium' : (overdue ? 'text-[#e03e3e] font-medium' : 'text-[#37352f]'));
 
   const noteText = ev.note || '';
   const noteClass = noteText ? 'text-[#787774]' : 'text-[#c7c7c5] italic';
@@ -288,9 +291,11 @@ function render() {
   const grid = document.getElementById('calGrid');
   grid.innerHTML = '';
 
-  // Đếm đơn quá hạn (chưa giao, đã qua ngày) trong tháng đang xem
+  // Đếm đơn quá hạn (chưa giao, đã qua ngày, KHÔNG phải đơn chờ xuất) trong tháng đang xem
   const overdueList = events.filter(ev =>
-    isOverdue(ev) && ev._dt.getFullYear() === viewYear && ev._dt.getMonth() === viewMonth
+    isOverdue(ev)
+    && !(ev.note || '').toLowerCase().includes('chờ xuất')
+    && ev._dt.getFullYear() === viewYear && ev._dt.getMonth() === viewMonth
   );
   const badge = document.getElementById('overdueBadge');
   if (overdueList.length > 0) {
