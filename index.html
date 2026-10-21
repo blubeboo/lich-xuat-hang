@@ -111,6 +111,7 @@
       <span class="inline-flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#9EB4D3] inline-block"></span>Kiểm</span>
       <span class="text-[13px] text-[#9b9a97] ml-auto">Màu đậm = đã xong · Màu nhạt = còn giờ cần làm</span>
     </div>
+    <div id="ganttNote" class="text-[13px] text-[#9b9a97] mb-3 text-right"></div>
     <div id="ganttBody"></div>
   </div>
 
@@ -417,31 +418,71 @@ const SAMPLE = [
 let ganttOrders = [];
 let ganttLoaded = false;
 
-function loadGantt() {
+// Nhớ kết quả lần trước trên máy -> mở tab là hiện ngay
+const GANTT_LS_KEY = 'gantt_cache_v4';
+function ganttFromLocal() {
+  try { const c = JSON.parse(localStorage.getItem(GANTT_LS_KEY) || 'null'); return c && Array.isArray(c.orders) ? c : null; }
+  catch (e) { return null; }
+}
+function ganttToLocal(data) {
+  try { localStorage.setItem(GANTT_LS_KEY, JSON.stringify({ orders: data.orders || [], updated: data.updated || new Date().toISOString() })); } catch (e) {}
+}
+function setGanttNote(msg) {
+  const el = document.getElementById('ganttNote'); if (el) el.textContent = msg;
+}
+function fmtUpdated(iso) {
+  const d = new Date(iso); if (isNaN(d)) return '';
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ' ' +
+         String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+let ganttFetching = false;
+function loadGantt(fresh) {
   const body = document.getElementById('ganttBody');
   if (GANTT_API_URL.startsWith("DÁN")) {
-    body.innerHTML = '<div class="text-[13px] text-[#9b9a97] py-6 text-center">⚠️ Chưa cấu hình link Gantt. Dán link Apps Script của file Order Processing Tracking vào biến GANTT_API_URL.</div>';
+    body.innerHTML = '<div class="text-[13px] text-[#9b9a97] py-6 text-center">⚠️ Chưa cấu hình link Gantt.</div>';
     return;
   }
-  body.innerHTML = '<div class="text-[13px] text-[#9b9a97] py-6 text-center">Đang tải tiến trình…</div>';
+  if (ganttFetching) return;
 
+  // 1) Có bản đã lưu trên máy -> hiện ngay
+  if (!ganttLoaded) {
+    const local = ganttFromLocal();
+    if (local) {
+      ganttOrders = local.orders; ganttLoaded = true; renderGantt();
+      setGanttNote('Dữ liệu lúc ' + fmtUpdated(local.updated) + ' · đang cập nhật…');
+    } else {
+      body.innerHTML = '<div class="text-[15px] text-[#9b9a97] py-10 text-center">Đang tải tiến trình…</div>';
+    }
+  } else {
+    setGanttNote('Đang cập nhật…');
+  }
+
+  // 2) Lấy bản mới từ Google
+  ganttFetching = true;
   const cbName = "ganttCb_" + Date.now();
   const timeout = setTimeout(() => {
-    body.innerHTML = '<div class="text-[13px] text-[#e03e3e] py-6 text-center">✗ Quá thời gian chờ. Kiểm tra link Gantt (quyền Anyone).</div>';
+    ganttFetching = false;
+    if (!ganttOrders.length) body.innerHTML = '<div class="text-[13px] text-[#e03e3e] py-6 text-center">✗ Quá thời gian chờ. Bấm Làm mới để thử lại.</div>';
+    setGanttNote('Chưa cập nhật được, đang hiện dữ liệu cũ');
     cleanup();
   }, 60000);
   function cleanup(){ delete window[cbName]; if (s && s.parentNode) s.parentNode.removeChild(s); }
 
   window[cbName] = function(data){
-    clearTimeout(timeout);
-    ganttOrders = data.orders || [];
-    ganttLoaded = true;
-    renderGantt();
+    clearTimeout(timeout); ganttFetching = false;
+    if (data && data.ok !== false) {
+      ganttOrders = data.orders || []; ganttLoaded = true;
+      ganttToLocal(data); renderGantt();
+      setGanttNote('Cập nhật lúc ' + fmtUpdated(data.updated || new Date().toISOString()));
+    } else {
+      setGanttNote('Lỗi: ' + (data && data.error ? data.error : 'không rõ'));
+    }
     cleanup();
   };
   const s = document.createElement('script');
-  s.src = GANTT_API_URL + (GANTT_API_URL.indexOf('?')>=0?'&':'?') + "callback=" + cbName + "&t=" + Date.now();
-  s.onerror = () => { clearTimeout(timeout); body.innerHTML = '<div class="text-[13px] text-[#e03e3e] py-6 text-center">✗ Không tải được dữ liệu Gantt.</div>'; cleanup(); };
+  s.src = GANTT_API_URL + (GANTT_API_URL.indexOf('?')>=0?'&':'?') + "callback=" + cbName + (fresh ? "&fresh=1" : "") + "&t=" + Date.now();
+  s.onerror = () => { clearTimeout(timeout); ganttFetching = false; setGanttNote('Không tải được dữ liệu mới'); cleanup(); };
   document.body.appendChild(s);
 }
 
@@ -531,12 +572,13 @@ document.getElementById('refreshBtn').onclick = () => {
   if (document.getElementById('viewGantt').classList.contains('hidden')) {
     loadData();
   } else {
-    ganttLoaded = false; loadGantt();
+    loadGantt(true);
   }
 };
 
 // khởi động
 loadData();
+setTimeout(() => loadGantt(false), 300);   // tải ngầm tab Tiến trình
 </script>
 
 </body>
