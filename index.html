@@ -20,6 +20,8 @@
 <!-- ============================================================= -->
 <script>
   const API_URL = "https://script.google.com/macros/s/AKfycbx8oq1FU2SStQjK7KarSTzqrZJYxlx2o4g9t-hab7XiaEI-pi0f_P8DZME1tVWsBJzdpw/exec";
+  // ⚙️ DÁN LINK APPS SCRIPT CỦA FILE "Order Processing Tracking" VÀO ĐÂY (cho Gantt)
+  const GANTT_API_URL = "https://script.google.com/macros/s/AKfycbyHBeyYCts-Gzl7aR2Aeh4OClHgltWGdjGKkA5Ie-6mAadaiBq_2vb3IEiRl1dQqN6z/exec";
 </script>
 
 <div class="max-w-[1400px] mx-auto px-6 py-6">
@@ -33,10 +35,17 @@
     </button>
   </div>
 
-  <!-- Status bar -->
-  <div class="flex items-center justify-end mb-3 border-b border-[#ededec] pb-2">
+  <!-- Tabs Lịch / Gantt + Status bar -->
+  <div class="flex items-center justify-between mb-3 border-b border-[#ededec] pb-2">
+    <div class="flex items-center gap-1">
+      <button id="tabLich" class="px-3 py-1 rounded-md text-[14px] font-medium text-[#37352f] border-b-2 border-[#37352f]">📅 Lịch</button>
+      <button id="tabGantt" class="px-3 py-1 rounded-md text-[14px] text-[#9b9a97] hover:bg-[#f5f5f4]">📊 Tiến trình (Gantt)</button>
+    </div>
     <div id="statusBar" class="text-[13px] text-[#9b9a97]">Đang tải dữ liệu…</div>
   </div>
+
+  <!-- ============ CHẾ ĐỘ LỊCH ============ -->
+  <div id="viewLich">
 
   <!-- Month nav -->
   <div class="flex items-center justify-between mb-2">
@@ -64,6 +73,20 @@
 
   <!-- Calendar grid -->
   <div id="calGrid" class="grid grid-cols-7 border-l border-[#ededec]"></div>
+
+  </div><!-- /viewLich -->
+
+  <!-- ============ CHẾ ĐỘ GANTT ============ -->
+  <div id="viewGantt" class="hidden">
+    <div class="flex items-center gap-2 mb-3 text-[12px] text-[#787774] flex-wrap">
+      <span class="font-medium text-[#37352f]">Chỉ hiện đơn chưa hoàn thành (Status &lt; 100%)</span>
+      <span class="mx-1">·</span>
+      <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-[#d3e7f7] border border-[#378add] inline-block"></span>Còn giờ cần làm</span>
+      <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-[#1d9e75] inline-block"></span>Tiến trình xong</span>
+      <span class="ml-auto">Tiến trình: Lấy · Dán · Kiểm</span>
+    </div>
+    <div id="ganttBody"></div>
+  </div>
 
 </div>
 
@@ -363,6 +386,123 @@ const SAMPLE = [
   {code:"VTM 2699", datetime:"07/02/2026 15:00", status:"Giao hàng", note:"", done:false},
   {code:"ND 2665", datetime:"07/03/2026 13:00", status:"Giao hàng", note:"", done:true},
 ];
+
+// ================= GANTT =================
+let ganttOrders = [];
+let ganttLoaded = false;
+
+function loadGantt() {
+  const body = document.getElementById('ganttBody');
+  if (GANTT_API_URL.startsWith("DÁN")) {
+    body.innerHTML = '<div class="text-[13px] text-[#9b9a97] py-6 text-center">⚠️ Chưa cấu hình link Gantt. Dán link Apps Script của file Order Processing Tracking vào biến GANTT_API_URL.</div>';
+    return;
+  }
+  body.innerHTML = '<div class="text-[13px] text-[#9b9a97] py-6 text-center">Đang tải tiến trình…</div>';
+
+  const cbName = "ganttCb_" + Date.now();
+  const timeout = setTimeout(() => {
+    body.innerHTML = '<div class="text-[13px] text-[#e03e3e] py-6 text-center">✗ Quá thời gian chờ. Kiểm tra link Gantt (quyền Anyone).</div>';
+    cleanup();
+  }, 20000);
+  function cleanup(){ delete window[cbName]; if (s && s.parentNode) s.parentNode.removeChild(s); }
+
+  window[cbName] = function(data){
+    clearTimeout(timeout);
+    ganttOrders = data.orders || [];
+    ganttLoaded = true;
+    renderGantt();
+    cleanup();
+  };
+  const s = document.createElement('script');
+  s.src = GANTT_API_URL + (GANTT_API_URL.indexOf('?')>=0?'&':'?') + "callback=" + cbName + "&t=" + Date.now();
+  s.onerror = () => { clearTimeout(timeout); body.innerHTML = '<div class="text-[13px] text-[#e03e3e] py-6 text-center">✗ Không tải được dữ liệu Gantt.</div>'; cleanup(); };
+  document.body.appendChild(s);
+}
+
+function renderGantt() {
+  const body = document.getElementById('ganttBody');
+  if (!ganttOrders.length) {
+    body.innerHTML = '<div class="text-[13px] text-[#9b9a97] py-6 text-center">✓ Không có đơn nào đang dở — tất cả đã hoàn thành.</div>';
+    return;
+  }
+
+  // Màu từng tiến trình: nền nhạt (còn lại) — tiến trình đã xong (giờ còn lại = 0) tô đậm
+  const STAGE_COLORS = {
+    'Lấy':  { done:'#1d9e75', rest:'#d3e7f7' },
+    'Dán':  { done:'#d85a30', rest:'#f7e0d3' },
+    'Kiểm': { done:'#534ab7', rest:'#e2dff7' }
+  };
+
+  // Bề rộng thanh theo giờ còn lại nhiều nhất trong tất cả đơn (để so sánh trực quan)
+  const maxRem = Math.max(1, ...ganttOrders.map(o => o.totalRemaining || 0));
+
+  let html = '';
+  ganttOrders.forEach(o => {
+    // Mỗi tiến trình 1 đoạn, bề rộng theo giờ còn lại của đoạn (so với tổng của đơn)
+    const sumRem = o.stages.reduce((a,s)=>a + (s.remaining||0), 0);
+    const segs = o.stages.map(s => {
+      const c = STAGE_COLORS[s.label] || { done:'#888', rest:'#eee' };
+      const rem = s.remaining || 0;
+      const isDone = s.has && rem === 0;        // tiến trình xong = không còn giờ
+      // bề rộng: nếu còn giờ thì theo tỉ lệ; nếu xong hoặc chưa có thì để 1 ô nhỏ
+      const w = sumRem > 0 ? Math.max(rem / sumRem * 100, rem > 0 ? 8 : 6) : (100 / 3);
+      const bg = isDone ? c.done : c.rest;
+      const txtColor = isDone ? '#fff' : '#222';
+      const label = isDone ? `${s.label} ✓` : `${s.label} ${rem}h`;
+      return `<div class="relative h-full flex items-center justify-center text-[10px] font-medium" style="width:${w}%;background:${bg};color:${txtColor}" title="${s.label}: còn ${rem}h">${label}</div>`;
+    }).join('<div style="width:1px;background:#fff"></div>');
+
+    html += `
+    <div class="mb-3 border border-[#ededec] rounded-lg p-3">
+      <div class="flex items-center justify-between mb-2 flex-wrap gap-1">
+        <div>
+          <span class="font-bold text-[14px]">${esc(o.code)}</span>
+          <span class="text-[12px] text-[#787774] ml-2">${esc(o.datetime)}</span>
+          ${o.ptype ? `<span class="text-[11px] text-[#9b9a97] ml-2">${esc(o.ptype)}</span>` : ''}
+        </div>
+        <div class="text-[12px]">
+          <span class="font-medium text-[#378add]">${o.statusPct}% hoàn thành</span>
+          <span class="mx-1 text-[#d3d1c7]">|</span>
+          <span class="${o.totalRemaining>0?'text-[#e03e3e]':'text-[#448361]'} font-medium">Tổng còn ${o.totalRemaining}h</span>
+        </div>
+      </div>
+      <div class="flex w-full h-7 rounded-md overflow-hidden border border-[#ededec]">${segs}</div>
+      <div class="flex gap-4 mt-1.5 text-[11px] text-[#787774]">
+        ${o.stages.map(s => `<span>${s.label}: ${(s.remaining||0)>0 ? 'còn <b class="text-[#e03e3e]">'+(s.remaining||0)+'h</b>' : (s.has ? '<b class="text-[#448361]">xong</b>' : '—')}</span>`).join('')}
+      </div>
+    </div>`;
+  });
+  body.innerHTML = html;
+}
+
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ================= CHUYỂN TAB =================
+function showTab(which) {
+  const isLich = which === 'lich';
+  document.getElementById('viewLich').classList.toggle('hidden', !isLich);
+  document.getElementById('viewGantt').classList.toggle('hidden', isLich);
+  const tL = document.getElementById('tabLich'), tG = document.getElementById('tabGantt');
+  tL.className = isLich
+    ? "px-3 py-1 rounded-md text-[14px] font-medium text-[#37352f] border-b-2 border-[#37352f]"
+    : "px-3 py-1 rounded-md text-[14px] text-[#9b9a97] hover:bg-[#f5f5f4]";
+  tG.className = !isLich
+    ? "px-3 py-1 rounded-md text-[14px] font-medium text-[#37352f] border-b-2 border-[#37352f]"
+    : "px-3 py-1 rounded-md text-[14px] text-[#9b9a97] hover:bg-[#f5f5f4]";
+  if (!isLich && !ganttLoaded) loadGantt();
+}
+document.getElementById('tabLich').onclick = () => showTab('lich');
+document.getElementById('tabGantt').onclick = () => showTab('gantt');
+
+// Nút Làm mới: làm mới đúng chế độ đang xem
+const _origRefresh = document.getElementById('refreshBtn').onclick;
+document.getElementById('refreshBtn').onclick = () => {
+  if (document.getElementById('viewGantt').classList.contains('hidden')) {
+    loadData();
+  } else {
+    ganttLoaded = false; loadGantt();
+  }
+};
 
 // khởi động
 loadData();
