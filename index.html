@@ -55,9 +55,6 @@
   .pic-chip.todo{background:#F4F3F0 !important;color:#a9a7a0 !important}
   .pic-left{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 0;min-width:0}
   .risk-strip{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed #ebe8e2}
-  .risk-bar{position:relative;height:10px;border-radius:99px;background:#EFEDE8;overflow:visible}
-  .risk-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px}
-  .risk-bar .cap{position:absolute;top:-5px;bottom:-5px;width:2px;background:#2b2a26}
   @media (max-width:900px){
     .pic-hero{flex-direction:column;gap:20px;padding:22px 18px;text-align:center}
     .pic-kpis{grid-template-columns:repeat(2,minmax(0,1fr));text-align:left}
@@ -585,13 +582,13 @@ function renderGantt() {
         <div class="min-w-0">
           <div class="text-[20px] font-bold text-[#2b2a26] leading-tight">${esc(o.code)}</div>
           <div class="flex items-center gap-2 mt-1 flex-wrap text-[14px] text-[#787774]">
-            <span>🚚 Giao: <span class="text-[#37352f] font-medium">${esc(o.datetime)}</span></span>
+            <span>🚚 Giao: <span class="text-[#37352f] font-medium">${giaoDMY(o.datetime)}</span></span>
             ${o.ptype ? `<span class="px-2 py-0.5 rounded-md bg-[#f4f4f2] text-[13px]">${esc(o.ptype)}</span>` : ''}
           </div>
         </div>
         <div class="text-right">
           <div class="text-[22px] font-bold leading-none" style="color:${pctColor}">${o.statusPct}%</div>
-          <div class="text-[13px] text-[#787774] mt-1">hoàn thành · còn <span class="font-semibold text-[#37352f]">${o.totalRemaining} giờ</span></div>
+          <div class="text-[13px] text-[#787774] mt-1">còn <span class="font-semibold text-[#37352f]">${o.totalRemaining} giờ</span></div>
         </div>
       </div>
       <div class="flex w-full h-11 rounded-lg overflow-hidden">${segs}</div>
@@ -855,7 +852,7 @@ const CREW_DAY = Object.values(CREW).reduce((a, b) => a + b, 0);                
 
 const RISK = {
   late:  { label:'Đã trễ',      bg:'#64313E', fg:'#FFFFFF', bar:'#64313E', edge:'#64313E', rank:0 },
-  high:  { label:'Nguy cơ cao', bg:'#F1E3E6', fg:'#64313E', bar:'#64313E', edge:'#C9A3AD', rank:1 },
+  high:  { label:'Nguy cơ chậm', bg:'#F1E3E6', fg:'#64313E', bar:'#64313E', edge:'#C9A3AD', rank:1 },
   tight: { label:'Sát giờ',     bg:'#E8EEF6', fg:'#2E4466', bar:'#9EB4D3', edge:'',        rank:2 },
   ok:    { label:'Kịp',         bg:'#EEF3DC', fg:'#4F6A16', bar:'#B0C965', edge:'',        rank:3 }
 };
@@ -871,35 +868,36 @@ function computeRisk() {
     const own = x.o.totalRemaining || 0;
     const before = cum;
     cum += own;
-    const cap = workHoursBetween(now, x.dt) / DAY_HOURS * CREW_DAY;
+    const clock = workHoursBetween(now, x.dt);
+    const cap = clock / DAY_HOURS * CREW_DAY;
     let level;
     if (x.dt < now) level = 'late';
     else if (cum > cap) level = 'high';
     else if (cap > 0 && cum / cap >= 0.7) level = 'tight';
     else level = 'ok';
-    map[x.o.code + '‖' + x.o.datetime] = { level, own: r1(own), before: r1(before), need: r1(cum), cap: r1(cap), ratio: cap > 0 ? cum / cap : 99 };
+    map[x.o.code + '‖' + x.o.datetime] = { level, own: r1(own), before: r1(before), need: r1(cum), cap: r1(cap), clock: r1(clock), ratio: cap > 0 ? cum / cap : 99 };
   });
   return map;
+}
+
+// Hiển thị giờ giao dạng dd/mm/yyyy HH:mm
+function giaoDMY(s) {
+  const d = parseDT(s);
+  if (!d) return esc(s);
+  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear() + ' ' + timeStr(d);
 }
 
 function riskStrip(k) {
   if (!k) return '';
   const R = RISK[k.level];
-  const max = Math.max(k.need, k.cap, 0.5) * 1.05;
-  const msg = k.level === 'late' ? 'đã quá giờ giao'
-    : k.level === 'high' ? `thiếu <b>${r1(k.need - k.cap)} giờ công</b>`
-    : `dùng ${Math.floor(k.ratio * 100)}% quỹ giờ`;
+  let msg;
+  if (k.level === 'late') msg = 'Đã quá giờ giao';
+  else if (k.level === 'high') msg = `Còn <b>${k.clock} giờ</b> đến lúc giao · <b style="color:#64313E">Nguy cơ cao, thiếu ${r1(k.need - k.cap)} giờ</b>`;
+  else msg = `Còn <b>${k.clock} giờ</b> đến lúc giao · quỹ giờ còn lại <b>${r1(k.cap - k.need)} giờ</b>`;
   return `
     <div class="risk-strip">
       <span class="inline-block text-[13px] font-bold rounded-full px-3 py-0.5 shrink-0" style="background:${R.bg};color:${R.fg}">${R.label}</span>
-      <div class="flex-1 min-w-[200px]">
-        <div class="risk-bar">
-          <i style="width:${k.before / max * 100}%;background:#D9D6CF"></i>
-          <i style="left:${k.before / max * 100}%;width:${k.own / max * 100}%;background:${R.bar}"></i>
-          ${k.level !== 'late' ? `<span class="cap" style="left:${Math.min(k.cap / max, 1) * 100}%"></span>` : ''}
-        </div>
-        <div class="text-[13px] text-[#5f5e5a] mt-1.5">Cần <b>${k.need} giờ công</b> (đơn này ${k.own}${k.before ? ` + ${k.before} của đơn giao trước` : ''})${k.level === 'late' ? '' : ` · quỹ ${k.cap} giờ công đến lúc giao`} · ${msg}</div>
-      </div>
+      <span class="text-[14px] text-[#5f5e5a]">${msg}</span>
     </div>`;
 }
 
