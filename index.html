@@ -889,10 +889,13 @@ function giaoDMY(s) {
 function riskStrip(k) {
   if (!k) return '';
   const R = RISK[k.level];
+  // Quy đổi giờ công cả nhóm ra giờ đồng hồ: mỗi giờ đồng hồ cả nhóm làm được CREW_DAY / DAY_HOURS giờ công
+  const finish = k.need / (CREW_DAY / DAY_HOURS);   // số giờ làm việc cần để xong đơn này (và các đơn giao trước)
+  const slack = r1(k.clock - finish);
   let msg;
   if (k.level === 'late') msg = 'Đã quá giờ giao';
-  else if (k.level === 'high') msg = `Còn <b>${k.clock} giờ</b> đến lúc giao · <b style="color:#64313E">thiếu ${r1(k.need - k.cap)} giờ</b>`;
-  else msg = `Còn <b>${k.clock} giờ</b> đến lúc giao · quỹ giờ còn lại <b>${r1(k.cap - k.need)} giờ</b>`;
+  else if (slack < 0) msg = `Còn <b>${k.clock} giờ</b> đến lúc giao · dự kiến <b style="color:#64313E">trễ ${-slack} giờ</b>`;
+  else msg = `Còn <b>${k.clock} giờ</b> đến lúc giao · dự kiến <b>xong sớm ${slack} giờ</b>`;
   return `<span class="inline-block text-[12px] font-bold tracking-wide rounded-full px-2.5 py-0.5" style="background:${R.bg};color:${R.fg}">${R.label}</span>
     <span class="text-[14px] text-[#5f5e5a]">${msg}</span>`;
 }
