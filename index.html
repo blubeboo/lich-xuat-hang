@@ -769,12 +769,12 @@ function renderPIC() {
     const items = gl.map(l => {
       const gp = rowsPct(l.rows).pct;
       const done = gp >= 100;
-      // Mỗi tiến trình 1 khối liền nhau: xong = màu đậm ✓ · đang làm = màu nhạt % · chưa làm = xám
+      // Mỗi tiến trình 1 khối liền nhau: xong = màu đậm ✓ · đang làm = màu nhạt + nửa vòng tròn · chưa làm = màu nhạt
       const chips = l.stages.map(st => {
         const c = STAGE_CHIP[st.stage] || { bg:'#F4F4F2', fg:'#5f5e5a', solid:'#ddd', on:'#333' };
         if (st.pct >= 100) return `<span class="pic-chip" style="background:${c.solid};color:${c.on}" title="${esc(st.stage)}: xong">${esc(st.stage)} ✓</span>`;
-        if (st.pct > 0)    return `<span class="pic-chip" style="background:${c.bg};color:${c.fg}" title="${esc(st.stage)}: ${st.pct}%">${esc(st.stage)} ${st.pct}%</span>`;
-        return `<span class="pic-chip todo" title="${esc(st.stage)}: chưa làm">${esc(st.stage)}</span>`;
+        if (st.pct > 0)    return `<span class="pic-chip" style="background:${c.bg};color:${c.fg}" title="${esc(st.stage)}: đang làm ${st.pct}%">${esc(st.stage)} <svg width="11" height="11" viewBox="0 0 12 12" style="display:inline-block;vertical-align:-1px"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 1.2 A4.8 4.8 0 0 1 6 10.8 Z" fill="currentColor"/></svg></span>`;
+        return `<span class="pic-chip" style="background:${c.bg};color:${c.fg}" title="${esc(st.stage)}: chưa làm">${esc(st.stage)}</span>`;
       }).join('');
       let state;
       if (done) state = '<b style="color:#4F6A16">✓ Xong</b>';
