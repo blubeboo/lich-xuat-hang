@@ -35,6 +35,25 @@
     .frame-card > div:first-child { flex-direction:column; gap:8px; }
     .frame-card h1 { font-size:28px !important; }
     #refreshBtn { position:static !important; }
+    #picDayLabel { font-size:15px; }
+    #statusBar { display:none; }
+  }
+  /* ===== Tab Nhân viên ===== */
+  .pic-hero{display:flex;align-items:center;gap:40px;background:linear-gradient(135deg,#FAF6F0,#F4ECE8);border:1px solid #ece2d8;border-radius:20px;padding:30px 40px;margin-bottom:22px}
+  .pic-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .pic-kpi{background:#fff;border:1px solid #ece6dc;border-radius:14px;padding:16px 18px}
+  .pic-kpi b{display:block;font-size:30px;font-weight:800;color:#64313E;line-height:1.15}
+  .pic-kpi span{font-size:14px;color:#787774}
+  .pic-grid{display:flex;flex-wrap:wrap;gap:16px}
+  .pic-card{flex:1 1 var(--basis);min-width:280px;border:1px solid #e9e9e7;border-radius:14px;padding:18px 20px;background:#fff}
+  .pic-li{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 0;border-top:1px solid #f1efeb;font-size:14.5px;line-height:1.4}
+  .pic-li:first-child{border-top:0}
+  .pic-chip{display:inline-block;font-size:12px;font-weight:600;border-radius:6px;padding:1px 8px;margin-right:6px;vertical-align:1px}
+  @media (max-width:900px){
+    .pic-hero{flex-direction:column;gap:20px;padding:22px 18px;text-align:center}
+    .pic-kpis{grid-template-columns:repeat(2,minmax(0,1fr));text-align:left}
+    .pic-card{min-width:100%}
+    .pic-hero-title{font-size:22px !important}
   }
 </style>
 </head>
@@ -47,6 +66,8 @@
   const API_URL = "https://script.google.com/macros/s/AKfycbx8oq1FU2SStQjK7KarSTzqrZJYxlx2o4g9t-hab7XiaEI-pi0f_P8DZME1tVWsBJzdpw/exec";
   // ⚙️ DÁN LINK APPS SCRIPT CỦA FILE "Order Processing Tracking" VÀO ĐÂY (cho Gantt)
   const GANTT_API_URL = "https://script.google.com/macros/s/AKfycbyHBeyYCts-Gzl7aR2Aeh4OClHgltWGdjGKkA5Ie-6mAadaiBq_2vb3IEiRl1dQqN6z/exec";
+  // ⚙️ DÁN LINK APPS SCRIPT "Tiến độ nhân viên" (PIC_Code.gs) VÀO ĐÂY
+  const PIC_API_URL = "DÁN_LINK_PIC_VÀO_ĐÂY";
 </script>
 
 <div class="frame">
@@ -66,6 +87,7 @@
     <div class="flex items-center gap-1">
       <button id="tabLich" class="px-3 py-1.5 rounded-md text-[16px] font-medium text-[#37352f] border-b-2 border-[#37352f]">📅 Lịch</button>
       <button id="tabGantt" class="px-3 py-1.5 rounded-md text-[16px] text-[#9b9a97] hover:bg-[#f5f5f4]">📊 Tiến trình</button>
+      <button id="tabPIC" class="px-3 py-1.5 rounded-md text-[16px] text-[#9b9a97] hover:bg-[#f5f5f4]">👥 Nhân viên</button>
     </div>
     <div id="statusBar" class="text-[13px] text-[#9b9a97]">Đang tải dữ liệu…</div>
   </div>
@@ -113,6 +135,19 @@
     </div>
     <div id="ganttNote" class="text-[13px] text-[#9b9a97] mb-3 text-right"></div>
     <div id="ganttBody"></div>
+  </div>
+
+  <!-- ============ CHẾ ĐỘ TIẾN ĐỘ NHÂN VIÊN ============ -->
+  <div id="viewPIC" class="hidden">
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
+      <button id="picPrev" class="px-2.5 py-1 rounded-md border border-[#e0e0e0] hover:bg-[#f5f5f4] text-[15px]">‹</button>
+      <h2 id="picDayLabel" class="text-[20px] font-semibold text-[#2b2a26] px-1">—</h2>
+      <button id="picNext" class="px-2.5 py-1 rounded-md border border-[#e0e0e0] hover:bg-[#f5f5f4] text-[15px]">›</button>
+      <span id="picTodayTag" class="hidden text-[13px] font-semibold bg-[#F1E3E6] text-[#64313E] rounded-full px-2.5 py-0.5">Hôm nay</span>
+      <button id="picToday" class="hidden px-3 py-1 rounded-md border border-[#e0e0e0] hover:bg-[#f5f5f4] text-[14px]">Về hôm nay</button>
+      <span id="picNote" class="ml-auto text-[13px] text-[#9b9a97]"></span>
+    </div>
+    <div id="picBody"></div>
   </div>
 
 </div>
@@ -549,36 +584,237 @@ function renderGantt() {
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+
+// ================= TIẾN ĐỘ NHÂN VIÊN THEO NGÀY =================
+let picRows = [];
+let picLoaded = false, picFetching = false;
+let picDay = dateKey(new Date());       // ngày đang xem (yyyy-MM-dd)
+const PIC_LS_KEY = 'pic_cache_v1';
+const STAGE_ORDER_VN = { 'Lấy': 1, 'Dán': 2, 'Kiểm': 3 };
+const WEEKDAYS_VN = ['Chủ nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
+
+function setPicNote(msg) { const el = document.getElementById('picNote'); if (el) el.textContent = msg; }
+
+function loadPIC(fresh) {
+  const body = document.getElementById('picBody');
+  if (PIC_API_URL.startsWith("DÁN")) {
+    body.innerHTML = '<div class="text-[14px] text-[#9b9a97] py-10 text-center">⚠️ Chưa dán link Apps Script tiến độ nhân viên (PIC_API_URL).</div>';
+    return;
+  }
+  if (picFetching) return;
+  if (!picLoaded) {
+    try {
+      const c = JSON.parse(localStorage.getItem(PIC_LS_KEY) || 'null');
+      if (c && Array.isArray(c.rows)) { picRows = c.rows; picLoaded = true; renderPIC(); setPicNote('Dữ liệu lúc ' + fmtUpdated(c.updated) + ' · đang cập nhật…'); }
+      else body.innerHTML = '<div class="text-[15px] text-[#9b9a97] py-10 text-center">Đang tải tiến độ…</div>';
+    } catch (e) {}
+  } else setPicNote('Đang cập nhật…');
+
+  picFetching = true;
+  const cbName = "picCb_" + Date.now();
+  const timeout = setTimeout(() => {
+    picFetching = false;
+    if (!picRows.length) body.innerHTML = '<div class="text-[13px] text-[#64313E] py-6 text-center">✗ Quá thời gian chờ. Bấm Làm mới để thử lại.</div>';
+    setPicNote('Chưa cập nhật được, đang hiện dữ liệu cũ');
+    cleanup();
+  }, 60000);
+  function cleanup(){ delete window[cbName]; if (s && s.parentNode) s.parentNode.removeChild(s); }
+  window[cbName] = function(data) {
+    clearTimeout(timeout); picFetching = false;
+    if (data && data.ok !== false) {
+      picRows = data.rows || []; picLoaded = true;
+      try { localStorage.setItem(PIC_LS_KEY, JSON.stringify({ rows: picRows, updated: data.updated })); } catch (e) {}
+      renderPIC();
+      setPicNote('Cập nhật lúc ' + fmtUpdated(data.updated || new Date().toISOString()));
+    } else setPicNote('Lỗi: ' + (data && data.error ? data.error : 'không rõ'));
+    cleanup();
+  };
+  const s = document.createElement('script');
+  s.src = PIC_API_URL + (PIC_API_URL.indexOf('?')>=0?'&':'?') + "callback=" + cbName + (fresh ? "&fresh=1" : "") + "&t=" + Date.now();
+  s.onerror = () => { clearTimeout(timeout); picFetching = false; setPicNote('Không tải được dữ liệu mới'); cleanup(); };
+  document.body.appendChild(s);
+}
+
+// % của 1 nhóm dòng: bình quân Status theo giờ kế hoạch (G); không có giờ thì bình quân thường
+function rowsPct(rows) {
+  let wSum = 0, wDone = 0, sSum = 0;
+  rows.forEach(r => {
+    const p = Math.min(Math.max(r.r || 0, 0), 100);
+    const h = r.h > 0 ? r.h : 0;
+    wSum += h; wDone += h * p / 100; sSum += p;
+  });
+  if (wSum > 0) return { pct: Math.round(wDone / wSum * 100), hDone: Math.round(wDone * 10) / 10, hAll: Math.round(wSum * 10) / 10 };
+  return { pct: rows.length ? Math.round(sSum / rows.length) : 0, hDone: 0, hAll: 0 };
+}
+
+function pctTone(p) {
+  if (p >= 100) return { stroke:'#B0C965', text:'#4F6A16' };
+  if (p >= 70)  return { stroke:'#B0C965', text:'#5a7a1e' };
+  if (p >= 30)  return { stroke:'#9EB4D3', text:'#2E4466' };
+  return { stroke:'#64313E', text:'#64313E' };
+}
+
+function donutSVG(p, size, sub) {
+  const sw = size >= 180 ? 26 : 10, r = (size - sw) / 2, C = 2 * Math.PI * r;
+  const t = pctTone(p), dash = C * Math.min(p, 100) / 100, fs = size >= 180 ? 56 : 21;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="shrink-0">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#EFEDE8" stroke-width="${sw}"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${t.stroke}" stroke-width="${sw}" stroke-linecap="${p>0 && p<100 ? 'round' : 'butt'}"
+      stroke-dasharray="${dash} ${C}" transform="rotate(-90 ${size/2} ${size/2})"/>
+    <text x="50%" y="${sub ? '46%' : '50%'}" text-anchor="middle" dominant-baseline="central" font-size="${fs}" font-weight="800" fill="${t.text}">${p}%</text>
+    ${sub ? `<text x="50%" y="65%" text-anchor="middle" font-size="18" fill="#9b9a97">${sub}</text>` : ''}
+  </svg>`;
+}
+
+function sortCartons(list) {
+  return [...new Set(list.filter(x => x !== ''))].sort((a, b) => {
+    const na = parseFloat(a), nb = parseFloat(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    if (!isNaN(na)) return -1; if (!isNaN(nb)) return 1;
+    return String(a).localeCompare(String(b), 'vi');
+  });
+}
+
+function splitPIC(p) {
+  const names = String(p || '').split(/[,;\/&+]/).map(x => x.trim().normalize('NFC')).filter(Boolean);
+  return names.length ? names : ['Chưa phân'];
+}
+
+function shiftPicDay(n) {
+  const [y, m, d] = picDay.split('-').map(Number);
+  picDay = dateKey(new Date(y, m - 1, d + n)); renderPIC();
+}
+
+// Số thẻ mỗi hàng: ≤3 người 1 hàng, 4 người 2×2, từ 5 người 3 thẻ/hàng (hàng cuối tự giãn đều)
+function picPerRow(n) { return n <= 3 ? n : (n === 4 ? 2 : 3); }
+
+const STAGE_CHIP = {
+  'Lấy':  { bg:'#EEF3DC', fg:'#3E4A14' },
+  'Dán':  { bg:'#F1E3E6', fg:'#64313E' },
+  'Kiểm': { bg:'#E8EEF6', fg:'#2E4466' }
+};
+
+function renderPIC() {
+  const [y, m, d] = picDay.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const isToday = picDay === dateKey(new Date());
+  document.getElementById('picDayLabel').textContent =
+    WEEKDAYS_VN[dt.getDay()] + ', ' + String(d).padStart(2,'0') + '/' + String(m).padStart(2,'0') + '/' + y;
+  document.getElementById('picTodayTag').classList.toggle('hidden', !isToday);
+  document.getElementById('picToday').classList.toggle('hidden', isToday);
+
+  const body = document.getElementById('picBody');
+  const dayRows = picRows.filter(r => r.d === picDay);
+  if (!dayRows.length) {
+    body.innerHTML = '<div class="text-[16px] text-[#9b9a97] py-12 text-center">Không có việc nào được giao cho ngày này.</div>';
+    return;
+  }
+
+  // Gom theo người (việc kiểm cặp tính cho cả 2 người)
+  const byP = {};
+  dayRows.forEach(r => splitPIC(r.p).forEach(n => (byP[n] = byP[n] || []).push(r)));
+  const people = Object.keys(byP).sort((a, b) => a === 'Chưa phân' ? 1 : b === 'Chưa phân' ? -1 : a.localeCompare(b, 'vi'));
+
+  // ----- Khối cả nhóm (mỗi dòng tính 1 lần) -----
+  const team = rowsPct(dayRows);
+  const doneRows = dayRows.filter(r => (r.r || 0) >= 100).length;
+  const nOrders = new Set(dayRows.map(r => r.c)).size;
+  const nPeople = people.filter(p => p !== 'Chưa phân').length;
+  const kpi = (v, l) => `<div class="pic-kpi"><b>${v}</b><span>${l}</span></div>`;
+  let html = `
+  <div class="pic-hero">
+    ${donutSVG(team.pct, 230, 'cả nhóm')}
+    <div style="flex:1;min-width:0">
+      <div class="pic-hero-title text-[28px] font-extrabold text-[#2b2a26] mb-4">Tiến độ cả nhóm${isToday ? ' hôm nay' : ''}</div>
+      <div class="pic-kpis">
+        ${kpi(nPeople, 'nhân viên')}
+        ${kpi(nOrders, 'đơn hàng')}
+        ${kpi(doneRows + '/' + dayRows.length, 'việc đã xong')}
+        ${kpi(team.hAll ? team.hDone + '/' + team.hAll : '—', 'giờ đã làm')}
+      </div>
+    </div>
+  </div>`;
+
+  // ----- Thẻ từng người -----
+  const per = picPerRow(people.length);
+  html += `<div class="pic-grid" style="--basis:calc((100% - ${(per - 1) * 16}px) / ${per})">`;
+  people.forEach(name => {
+    const rows = byP[name];
+    const sum = rowsPct(rows);
+    const nOrd = new Set(rows.map(r => r.c)).size;
+
+    const groups = {};
+    rows.forEach(r => {
+      const k = r.c + '‖' + r.s;
+      (groups[k] = groups[k] || { code: r.c, stage: r.s, rows: [] }).rows.push(r);
+    });
+    const gl = Object.values(groups).sort((a, b) =>
+      a.code.localeCompare(b.code, 'vi', { numeric: true }) || (STAGE_ORDER_VN[a.stage] || 9) - (STAGE_ORDER_VN[b.stage] || 9));
+
+    const items = gl.map(g => {
+      const gp = rowsPct(g.rows).pct;
+      const done = gp >= 100;
+      const cartons = sortCartons(g.rows.map(r => r.n));
+      const chip = STAGE_CHIP[g.stage] || { bg:'#F4F4F2', fg:'#5f5e5a' };
+      const state = done
+        ? '<b style="color:#4F6A16">✓ Xong</b>'
+        : (gp > 0 ? `<b style="color:#2E4466">${gp}%</b>` : '<span style="color:#b4b2a9">chưa làm</span>');
+      return `<div class="pic-li">
+        <span><span class="pic-chip" style="background:${chip.bg};color:${chip.fg}">${esc(g.stage)}</span><b style="color:${done ? '#9b9a97' : '#2b2a26'}">${esc(g.code)}</b>
+        <span style="color:${done ? '#9b9a97' : '#37352f'}">${cartons.length ? 'thùng ' + esc(cartons.join(', ')) : ''}</span></span>
+        <span class="shrink-0">${state}</span></div>`;
+    }).join('');
+
+    html += `
+    <div class="pic-card g-card">
+      <div class="flex items-center gap-4 mb-3">
+        ${donutSVG(sum.pct, 96)}
+        <div class="min-w-0">
+          <div class="text-[20px] font-bold text-[#2b2a26] leading-tight">${esc(name)}</div>
+          <div class="text-[14px] text-[#787774] mt-1">${nOrd} đơn hàng</div>
+          ${sum.hAll ? `<div class="text-[14px] text-[#787774]">${sum.hDone} / ${sum.hAll} giờ</div>` : ''}
+        </div>
+      </div>
+      ${items}
+    </div>`;
+  });
+  body.innerHTML = html + '</div>';
+}
+
+document.getElementById('picPrev').onclick = () => shiftPicDay(-1);
+document.getElementById('picNext').onclick = () => shiftPicDay(1);
+document.getElementById('picToday').onclick = () => { picDay = dateKey(new Date()); renderPIC(); };
+
 // ================= CHUYỂN TAB =================
+const TAB_ON  = "px-3 py-1.5 rounded-md text-[16px] font-medium text-[#37352f] border-b-2 border-[#37352f]";
+const TAB_OFF = "px-3 py-1.5 rounded-md text-[16px] text-[#9b9a97] hover:bg-[#f5f5f4]";
+let currentTab = 'lich';
 function showTab(which) {
-  const isLich = which === 'lich';
-  document.getElementById('viewLich').classList.toggle('hidden', !isLich);
-  document.getElementById('viewGantt').classList.toggle('hidden', isLich);
-  const tL = document.getElementById('tabLich'), tG = document.getElementById('tabGantt');
-  tL.className = isLich
-    ? "px-3 py-1.5 rounded-md text-[16px] font-medium text-[#37352f] border-b-2 border-[#37352f]"
-    : "px-3 py-1.5 rounded-md text-[16px] text-[#9b9a97] hover:bg-[#f5f5f4]";
-  tG.className = !isLich
-    ? "px-3 py-1.5 rounded-md text-[16px] font-medium text-[#37352f] border-b-2 border-[#37352f]"
-    : "px-3 py-1.5 rounded-md text-[16px] text-[#9b9a97] hover:bg-[#f5f5f4]";
-  if (!isLich && !ganttLoaded) loadGantt();
+  currentTab = which;
+  document.getElementById('viewLich').classList.toggle('hidden', which !== 'lich');
+  document.getElementById('viewGantt').classList.toggle('hidden', which !== 'gantt');
+  document.getElementById('viewPIC').classList.toggle('hidden', which !== 'pic');
+  document.getElementById('tabLich').className = which === 'lich' ? TAB_ON : TAB_OFF;
+  document.getElementById('tabGantt').className = which === 'gantt' ? TAB_ON : TAB_OFF;
+  document.getElementById('tabPIC').className = which === 'pic' ? TAB_ON : TAB_OFF;
+  if (which === 'gantt' && !ganttLoaded) loadGantt();
+  if (which === 'pic') { if (!picLoaded) loadPIC(); else renderPIC(); }
 }
 document.getElementById('tabLich').onclick = () => showTab('lich');
 document.getElementById('tabGantt').onclick = () => showTab('gantt');
+document.getElementById('tabPIC').onclick = () => showTab('pic');
 
 // Nút Làm mới: làm mới đúng chế độ đang xem
-const _origRefresh = document.getElementById('refreshBtn').onclick;
 document.getElementById('refreshBtn').onclick = () => {
-  if (document.getElementById('viewGantt').classList.contains('hidden')) {
-    loadData();
-  } else {
-    loadGantt(true);
-  }
+  if (currentTab === 'gantt') loadGantt(true);
+  else if (currentTab === 'pic') loadPIC(true);
+  else loadData();
 };
 
 // khởi động
 loadData();
 setTimeout(() => loadGantt(false), 300);   // tải ngầm tab Tiến trình
+setTimeout(() => loadPIC(false), 600);     // tải ngầm tab Tiến độ nhân viên
 </script>
 
 </body>
