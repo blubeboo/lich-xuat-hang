@@ -37,7 +37,7 @@
     #refreshBtn { position:static !important; }
     #picDayLabel { font-size:15px; }
     #statusBar { display:none; }
-    #tabLich,#tabGantt,#tabPIC,#tabTrend { white-space:nowrap; font-size:14px !important; padding:6px 6px !important; }
+    #tabLich,#tabGantt,#tabPIC { white-space:nowrap; font-size:14px !important; padding:6px 6px !important; }
     div:has(> #tabLich) { gap:0 !important; overflow-x:auto; max-width:100%; }
   }
   /* ===== Tab Nhân viên ===== */
@@ -54,23 +54,11 @@
   .pic-chip{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;white-space:nowrap}
   .pic-chip.todo{background:#F4F3F0 !important;color:#a9a7a0 !important}
   .pic-left{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 0;min-width:0}
-  .risk-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
-  .risk-tile{border-radius:14px;padding:12px 18px}
-  .risk-tile b{display:block;font-size:28px;font-weight:800;line-height:1.15}
-  .risk-tile span{font-size:14px;color:#5f5e5a}
-  .risk-row{display:grid;grid-template-columns:230px 1fr 170px;gap:24px;align-items:center;border:1px solid #e9e9e7;border-radius:14px;padding:14px 20px;margin-bottom:10px;background:#fff}
-  .risk-right{text-align:right}
-  .risk-bar{position:relative;height:14px;border-radius:99px;background:#EFEDE8}
+  .risk-strip{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed #ebe8e2}
+  .risk-bar{position:relative;height:10px;border-radius:99px;background:#EFEDE8;overflow:visible}
   .risk-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px}
-  .risk-bar .cap{position:absolute;top:-6px;bottom:-6px;width:2px;background:#2b2a26}
-  .seg{display:inline-flex;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;font-size:14px}
-  .seg span{padding:5px 14px;cursor:pointer}
-  .seg span.on{background:#64313E;color:#fff;font-weight:600}
-  .trend-people{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  .risk-bar .cap{position:absolute;top:-5px;bottom:-5px;width:2px;background:#2b2a26}
   @media (max-width:900px){
-    .risk-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .risk-row{grid-template-columns:1fr;gap:10px}
-    .risk-right{text-align:left}
     .pic-hero{flex-direction:column;gap:20px;padding:22px 18px;text-align:center}
     .pic-kpis{grid-template-columns:repeat(2,minmax(0,1fr));text-align:left}
     .pic-card{min-width:100%}
@@ -109,7 +97,6 @@
       <button id="tabLich" class="px-3 py-1.5 rounded-md text-[16px] font-medium text-[#37352f] border-b-2 border-[#37352f]">📅 Lịch</button>
       <button id="tabGantt" class="px-3 py-1.5 rounded-md text-[16px] text-[#9b9a97] hover:bg-[#f5f5f4]">📊 Tiến trình</button>
       <button id="tabPIC" class="px-3 py-1.5 rounded-md text-[16px] text-[#9b9a97] hover:bg-[#f5f5f4]">👥 Nhân viên</button>
-      <button id="tabTrend" class="px-3 py-1.5 rounded-md text-[16px] text-[#9b9a97] hover:bg-[#f5f5f4]">📈 Xu hướng</button>
     </div>
     <div id="statusBar" class="text-[13px] text-[#9b9a97]">Đang tải dữ liệu…</div>
   </div>
@@ -148,9 +135,9 @@
 
   <!-- ============ CHẾ ĐỘ GANTT ============ -->
   <div id="viewGantt" class="hidden">
-    <div id="riskBox" class="mb-6"></div>
     <div class="flex items-center gap-x-5 gap-y-2 mb-4 text-[15px] text-[#5f5e5a] flex-wrap">
       <span class="font-semibold text-[#37352f]">Đơn chưa hoàn thành</span>
+      <span id="riskSummary" class="text-[13px]"></span>
       <span class="inline-flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#B0C965] inline-block"></span>Lấy</span>
       <span class="inline-flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#64313E] inline-block"></span>Dán</span>
       <span class="inline-flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#9EB4D3] inline-block"></span>Kiểm</span>
@@ -158,16 +145,6 @@
     </div>
     <div id="ganttNote" class="text-[13px] text-[#9b9a97] mb-3 text-right"></div>
     <div id="ganttBody"></div>
-  </div>
-
-  <!-- ============ CHẾ ĐỘ XU HƯỚNG ============ -->
-  <div id="viewTrend" class="hidden">
-    <div class="flex items-baseline gap-3 flex-wrap mb-3">
-      <h2 class="text-[22px] font-extrabold text-[#2b2a26]">% hoàn thành việc trong ngày</h2>
-      <span class="text-[14px] text-[#787774]">việc giao cho ngày nào tính cho ngày đó · mục tiêu ≥ 80%</span>
-      <span id="trendSeg" class="seg ml-auto"><span data-w="2">2 tuần</span><span data-w="4" class="on">4 tuần</span></span>
-    </div>
-    <div id="trendBody"></div>
   </div>
 
   <!-- ============ CHẾ ĐỘ TIẾN ĐỘ NHÂN VIÊN ============ -->
@@ -517,7 +494,7 @@ function loadGantt(fresh) {
   if (!ganttLoaded) {
     const local = ganttFromLocal();
     if (local) {
-      ganttOrders = local.orders; ganttLoaded = true; renderGantt(); renderRisk();
+      ganttOrders = local.orders; ganttLoaded = true; renderGantt();
       setGanttNote('Dữ liệu lúc ' + fmtUpdated(local.updated) + ' · đang cập nhật…');
     } else {
       body.innerHTML = '<div class="text-[15px] text-[#9b9a97] py-10 text-center">Đang tải tiến trình…</div>';
@@ -541,7 +518,7 @@ function loadGantt(fresh) {
     clearTimeout(timeout); ganttFetching = false;
     if (data && data.ok !== false) {
       ganttOrders = data.orders || []; ganttLoaded = true;
-      ganttToLocal(data); renderGantt(); renderRisk();
+      ganttToLocal(data); renderGantt();
       setGanttNote('Cập nhật lúc ' + fmtUpdated(data.updated || new Date().toISOString()));
     } else {
       setGanttNote('Lỗi: ' + (data && data.error ? data.error : 'không rõ'));
@@ -568,8 +545,17 @@ function renderGantt() {
     'Kiểm': { solid:'#9EB4D3', tint:'#E8EEF6', text:'#2E4466', onSolid:'#1E3150' }  // Chambray Blue 15-4030 TCX
   };
 
+  const risk = computeRisk();
+  const cnt = {};
+  Object.values(risk).forEach(k => cnt[k.level] = (cnt[k.level] || 0) + 1);
+  const sumEl = document.getElementById('riskSummary');
+  if (sumEl) sumEl.innerHTML = ['late','high','tight','ok'].filter(l => cnt[l]).map(l =>
+    `<span class="inline-block rounded-full px-2.5 py-0.5 font-semibold" style="background:${RISK[l].bg};color:${RISK[l].fg}">${cnt[l]} ${RISK[l].label.toLowerCase()}</span>`).join(' ');
+
   let html = '';
   ganttOrders.forEach(o => {
+    const rk = risk[o.code + '‖' + o.datetime];
+    const edge = rk && RISK[rk.level].edge ? `border-left:5px solid ${RISK[rk.level].edge}` : '';
     const sumRem = o.stages.reduce((a,s)=>a + (s.remaining||0), 0);
 
     const segs = o.stages.map(s => {
@@ -594,7 +580,7 @@ function renderGantt() {
     const pctColor = o.statusPct >= 70 ? '#5a7a1e' : (o.statusPct >= 30 ? '#2E4466' : '#64313E');
 
     html += `
-    <div class="g-card mb-4 bg-white border border-[#e9e9e7] rounded-xl px-5 py-4">
+    <div class="g-card mb-4 bg-white border border-[#e9e9e7] rounded-xl px-5 py-4" style="${edge}">
       <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
         <div class="min-w-0">
           <div class="text-[20px] font-bold text-[#2b2a26] leading-tight">${esc(o.code)}</div>
@@ -610,6 +596,7 @@ function renderGantt() {
       </div>
       <div class="flex w-full h-11 rounded-lg overflow-hidden">${segs}</div>
       <div class="flex gap-x-6 gap-y-1 mt-3 text-[15px] text-[#5f5e5a] flex-wrap">${pills}</div>
+      ${riskStrip(rk)}
     </div>`;
   });
   body.innerHTML = html;
@@ -638,7 +625,7 @@ function loadPIC(fresh) {
   if (!picLoaded) {
     try {
       const c = JSON.parse(localStorage.getItem(PIC_LS_KEY) || 'null');
-      if (c && Array.isArray(c.rows)) { picRows = c.rows; picLoaded = true; renderPIC(); renderRisk(); setPicNote('Dữ liệu lúc ' + fmtUpdated(c.updated) + ' · đang cập nhật…'); }
+      if (c && Array.isArray(c.rows)) { picRows = c.rows; picLoaded = true; renderPIC(); setPicNote('Dữ liệu lúc ' + fmtUpdated(c.updated) + ' · đang cập nhật…'); }
       else body.innerHTML = '<div class="text-[15px] text-[#9b9a97] py-10 text-center">Đang tải tiến độ…</div>';
     } catch (e) {}
   } else setPicNote('Đang cập nhật…');
@@ -657,7 +644,7 @@ function loadPIC(fresh) {
     if (data && data.ok !== false) {
       picRows = data.rows || []; picLoaded = true;
       try { localStorage.setItem(PIC_LS_KEY, JSON.stringify({ rows: picRows, updated: data.updated })); } catch (e) {}
-      renderPIC(); renderRisk(); if (currentTab === 'trend') renderTrend();
+      renderPIC();
       setPicNote('Cập nhật lúc ' + fmtUpdated(data.updated || new Date().toISOString()));
     } else setPicNote('Lỗi: ' + (data && data.error ? data.error : 'không rõ'));
     cleanup();
@@ -841,8 +828,6 @@ document.getElementById('picToday').onclick = () => { picDay = dateKey(new Date(
 
 // ================= CẤU HÌNH CHUNG (sửa ở đây) =================
 const WORK = { start: 8.25, end: 17, lunchStart: 12, lunchEnd: 13, days: [1, 2, 3, 4, 5] }; // 8:15–17:00, nghỉ 12–13, thứ 2–6
-const TARGET = 80;      // % hoàn thành trong ngày được tính là đạt
-const TARGET_GOOD = 90; // từ mức này tô màu đậm hơn
 
 // Số giờ làm việc giữa 2 thời điểm (chỉ tính khung giờ làm, bỏ nghỉ trưa, bỏ thứ 7 – CN)
 function workHoursBetween(from, to) {
@@ -863,252 +848,61 @@ function workHoursBetween(from, to) {
 }
 
 // ================= CẢNH BÁO TRỄ GIAO =================
+// Giờ công mỗi người làm được trong 1 ngày (tính vo, sửa ở đây khi thay đổi nhân sự)
+const CREW = { 'Thảo': 7.5, 'Phượng': 7.5, 'Hậu': 5 };
+const DAY_HOURS = (WORK.lunchStart - WORK.start) + (WORK.end - WORK.lunchEnd);   // 7,75 giờ đồng hồ / ngày
+const CREW_DAY = Object.values(CREW).reduce((a, b) => a + b, 0);                // 20 giờ công / ngày
+
 const RISK = {
-  late:  { label:'Đã trễ',      bg:'#64313E', fg:'#FFFFFF', bar:'#64313E', tile:'#F1E3E6', num:'#64313E', rank:0 },
-  high:  { label:'Nguy cơ cao', bg:'#F1E3E6', fg:'#64313E', bar:'#64313E', tile:'#F1E3E6', num:'#64313E', rank:1 },
-  tight: { label:'Sát giờ',     bg:'#E8EEF6', fg:'#2E4466', bar:'#9EB4D3', tile:'#E8EEF6', num:'#2E4466', rank:2 },
-  ok:    { label:'Kịp',         bg:'#EEF3DC', fg:'#4F6A16', bar:'#B0C965', tile:'#EEF3DC', num:'#4F6A16', rank:3 }
+  late:  { label:'Đã trễ',      bg:'#64313E', fg:'#FFFFFF', bar:'#64313E', edge:'#64313E', rank:0 },
+  high:  { label:'Nguy cơ cao', bg:'#F1E3E6', fg:'#64313E', bar:'#64313E', edge:'#C9A3AD', rank:1 },
+  tight: { label:'Sát giờ',     bg:'#E8EEF6', fg:'#2E4466', bar:'#9EB4D3', edge:'',        rank:2 },
+  ok:    { label:'Kịp',         bg:'#EEF3DC', fg:'#4F6A16', bar:'#B0C965', edge:'',        rank:3 }
 };
-let riskShowOk = false;
 const r1 = v => Math.round(v * 10) / 10;
 
-function friendlyDT(dt) {
-  const now = new Date(), t = timeStr(dt);
-  const dd = dateKey(dt), today = dateKey(now), tm = dateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
-  if (dd === today) return 'Hôm nay ' + t;
-  if (dd === tm) return 'Mai ' + t;
-  return String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0') + ' ' + t;
-}
-
-function buildRisk() {
-  const now = new Date();
-  return ganttOrders.map(o => {
-    const dt = parseDT(o.datetime);
-    if (!dt) return null;
-    // Việc đã giao PIC: giờ (G, của 1 người) chia cho số người cùng làm. Việc chưa giao: tính như 1 người.
-    const key = String(o.code).trim().toLowerCase();
-    const prow = (picLoaded ? picRows : []).filter(r => String(r.c).trim().toLowerCase() === key && (r.r || 0) < 100);
-    const people = new Set();
-    let gAssigned = 0, gClock = 0;
-    prow.forEach(r => {
-      const names = splitPIC(r.p).filter(n => n !== 'Chưa phân');
-      names.forEach(n => people.add(n));
-      gAssigned += r.h || 0;
-      gClock += (r.h || 0) / Math.max(names.length, 1);
-    });
-    const total = o.totalRemaining || 0;
-    const need = Math.max(0, total - Math.min(gAssigned, total) + gClock);
-    const avail = workHoursBetween(now, dt);
+// Xếp đơn theo giờ giao, đơn giao trước làm trước. Với mỗi đơn: giờ việc cộng dồn (đơn này + các đơn giao trước)
+// so với giờ công cả nhóm từ bây giờ đến lúc giao. Không cần biết đơn đã giao người hay chưa.
+function computeRisk() {
+  const now = new Date(), map = {};
+  const list = ganttOrders.map(o => ({ o, dt: parseDT(o.datetime) })).filter(x => x.dt).sort((a, b) => a.dt - b.dt);
+  let cum = 0;
+  list.forEach(x => {
+    const own = x.o.totalRemaining || 0;
+    const before = cum;
+    cum += own;
+    const cap = workHoursBetween(now, x.dt) / DAY_HOURS * CREW_DAY;
     let level;
-    if (dt < now) level = 'late';
-    else if (need > avail) level = 'high';
-    else if (avail > 0 && need / avail >= 0.7) level = 'tight';
+    if (x.dt < now) level = 'late';
+    else if (cum > cap) level = 'high';
+    else if (cap > 0 && cum / cap >= 0.7) level = 'tight';
     else level = 'ok';
-    const todo = (o.stages || []).filter(s => s.has && !s.done).map(s => s.label);
-    return { o, dt, need: r1(need), avail: r1(avail), level, people: [...people], todo,
-             ratio: avail > 0 ? need / avail : (need > 0 ? 99 : 0) };
-  }).filter(Boolean).sort((a, b) => RISK[a.level].rank - RISK[b.level].rank || b.ratio - a.ratio || a.dt - b.dt);
+    map[x.o.code + '‖' + x.o.datetime] = { level, own: r1(own), before: r1(before), need: r1(cum), cap: r1(cap), ratio: cap > 0 ? cum / cap : 99 };
+  });
+  return map;
 }
 
-function renderRisk() {
-  const box = document.getElementById('riskBox');
-  if (!box) return;
-  if (!ganttOrders.length) { box.innerHTML = ''; return; }
-  const list = buildRisk();
-  const cnt = k => list.filter(x => x.level === k).length;
-  const shown = list.filter(x => x.level !== 'ok' || riskShowOk);
-  const nOk = cnt('ok');
-
-  let html = `
-  <div class="flex items-baseline gap-3 flex-wrap mb-3">
-    <h2 class="text-[22px] font-extrabold text-[#2b2a26]">⚠️ Cảnh báo trễ giao</h2>
-    <span class="text-[14px] text-[#787774]">so giờ việc còn lại với giờ làm việc còn đến lúc giao</span>
-  </div>
-  <div class="risk-tiles">
-    ${['late','high','tight','ok'].map(k => `<div class="risk-tile" style="background:${RISK[k].tile}">
-      <b style="color:${RISK[k].num}">${cnt(k)}</b><span>${RISK[k].label}</span></div>`).join('')}
-  </div>`;
-
-  if (!shown.length) {
-    html += `<div class="text-[15px] text-[#4F6A16] py-3">✓ Không có đơn nào có nguy cơ trễ.</div>`;
-  } else {
-    html += `<div class="flex gap-4 text-[13px] text-[#5f5e5a] mb-2 flex-wrap">
-      <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-[#64313E] mr-1.5"></span>Giờ việc còn lại</span>
-      <span><span class="inline-block w-[2px] h-3 bg-[#2b2a26] mr-1.5 align-[-1px]"></span>Giờ làm việc còn đến lúc giao</span></div>`;
-    shown.forEach(x => {
-      const R = RISK[x.level];
-      const max = Math.max(x.need, x.avail, 0.5) * 1.08;
-      const sub = x.level === 'late' ? 'đã quá giờ giao'
-        : x.level === 'high' ? `thiếu ${r1(x.need - x.avail)} giờ`
-        : `dùng ${Math.round(x.ratio * 100)}% quỹ giờ`;
-      const edge = x.level === 'late' ? 'border-left:5px solid #64313E' : x.level === 'high' ? 'border-left:5px solid #C9A3AD' : '';
-      html += `
-      <div class="risk-row" style="${edge}">
-        <div class="min-w-0">
-          <div class="text-[18px] font-extrabold text-[#2b2a26] break-words">${esc(x.o.code)}</div>
-          <div class="text-[14px] text-[#787774]">🚚 Giao: <b class="text-[#37352f]">${friendlyDT(x.dt)}</b></div>
-          <div class="text-[13px] text-[#787774]">👥 ${x.people.length ? esc(x.people.join(', ')) : 'chưa giao người'}</div>
+function riskStrip(k) {
+  if (!k) return '';
+  const R = RISK[k.level];
+  const max = Math.max(k.need, k.cap, 0.5) * 1.05;
+  const msg = k.level === 'late' ? 'đã quá giờ giao'
+    : k.level === 'high' ? `thiếu <b>${r1(k.need - k.cap)} giờ công</b>`
+    : `dùng ${Math.floor(k.ratio * 100)}% quỹ giờ`;
+  return `
+    <div class="risk-strip">
+      <span class="inline-block text-[13px] font-bold rounded-full px-3 py-0.5 shrink-0" style="background:${R.bg};color:${R.fg}">${R.label}</span>
+      <div class="flex-1 min-w-[200px]">
+        <div class="risk-bar">
+          <i style="width:${k.before / max * 100}%;background:#D9D6CF"></i>
+          <i style="left:${k.before / max * 100}%;width:${k.own / max * 100}%;background:${R.bar}"></i>
+          ${k.level !== 'late' ? `<span class="cap" style="left:${Math.min(k.cap / max, 1) * 100}%"></span>` : ''}
         </div>
-        <div>
-          <div class="risk-bar"><i style="width:${Math.min(x.need / max, 1) * 100}%;background:${R.bar}"></i>
-            ${x.level !== 'late' ? `<span class="cap" style="left:${x.avail / max * 100}%"></span>` : ''}</div>
-          <div class="flex justify-between gap-3 text-[13px] mt-2 flex-wrap">
-            <span>Còn <b>${x.need} giờ</b> việc${x.todo.length ? ` · <span class="text-[#787774]">chưa xong: ${esc(x.todo.join(', '))}</span>` : ''}</span>
-            <span class="text-[#787774]">${x.level === 'late' ? '' : `còn ${x.avail} giờ làm`}</span>
-          </div>
-        </div>
-        <div class="risk-right">
-          <span class="inline-block text-[13px] font-bold rounded-full px-3 py-0.5" style="background:${R.bg};color:${R.fg}">${R.label}</span>
-          <div class="text-[13px] text-[#787774] mt-1.5">${sub}</div>
-        </div>
-      </div>`;
-    });
-  }
-  if (nOk) html += `<button id="riskToggle" class="text-[14px] text-[#2E4466] hover:underline mb-1">${riskShowOk ? '▲ Ẩn đơn kịp' : `▼ Xem ${nOk} đơn kịp`}</button>`;
-  html += `<div class="text-[12.5px] text-[#9b9a97] mt-1">Giờ làm 8:15–17:00 (nghỉ trưa 12:00–13:00), thứ 2–thứ 6 · Việc nhiều người làm chia giờ cho số người · Kịp &lt;70% · Sát giờ 70–100% · Nguy cơ cao &gt;100% quỹ giờ</div>`;
-  box.innerHTML = html;
-  const t = document.getElementById('riskToggle');
-  if (t) t.onclick = () => { riskShowOk = !riskShowOk; renderRisk(); };
+        <div class="text-[13px] text-[#5f5e5a] mt-1.5">Cần <b>${k.need} giờ công</b> (đơn này ${k.own}${k.before ? ` + ${k.before} của đơn giao trước` : ''})${k.level === 'late' ? '' : ` · quỹ ${k.cap} giờ công đến lúc giao`} · ${msg}</div>
+      </div>
+    </div>`;
 }
 
-// ================= XU HƯỚNG 2–4 TUẦN =================
-let trendWeeks = 4;
-
-function personRows(rows, name) {
-  // giờ của việc làm chung chia đều cho số người
-  const out = [];
-  rows.forEach(r => {
-    const names = splitPIC(r.p);
-    if (names.includes(name)) out.push({ ...r, h: (r.h || 0) / names.length });
-  });
-  return out;
-}
-
-function trendDays() {
-  const now = new Date(), today = dateKey(now), days = [];
-  for (let i = trendWeeks * 7 - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-    if (!WORK.days.includes(d.getDay())) continue;
-    const k = dateKey(d);
-    const rows = picRows.filter(r => r.d === k);
-    if (rows.length) days.push({ k, d, rows, today: k === today });
-  }
-  return days;
-}
-
-function keyDate(k) { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); }
-function weekStart(d) { const x = new Date(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return dateKey(x); }
-
-function pctTone2(p) { return p >= TARGET_GOOD ? '#4F6A16' : p >= TARGET ? '#6B8A2A' : p >= 60 ? '#2E4466' : '#64313E'; }
-
-function renderTrend() {
-  const body = document.getElementById('trendBody');
-  if (!picLoaded) { body.innerHTML = '<div class="text-[15px] text-[#9b9a97] py-10 text-center">Đang tải dữ liệu…</div>'; return; }
-  document.querySelectorAll('#trendSeg span').forEach(s => s.classList.toggle('on', +s.dataset.w === trendWeeks));
-  const days = trendDays();
-  if (!days.length) { body.innerHTML = '<div class="text-[15px] text-[#9b9a97] py-10 text-center">Chưa có dữ liệu trong khoảng này.</div>'; return; }
-  days.forEach(x => x.pct = rowsPct(x.rows).pct);
-  const past = days.filter(x => !x.today);
-  const avg = a => a.length ? Math.round(a.reduce((s, v) => s + v, 0) / a.length) : null;
-
-  // Ô chỉ số (không tính hôm nay vì còn đang làm)
-  const avgAll = avg(past.map(x => x.pct));
-  const nHit = past.filter(x => x.pct >= TARGET).length;
-  const wkNow = weekStart(new Date());
-  const lastWk = weekStart(new Date(Date.now() - 7 * 86400000));
-  const aNow = avg(past.filter(x => weekStart(x.d) === wkNow).map(x => x.pct));
-  const aPrev = avg(past.filter(x => weekStart(x.d) === lastWk).map(x => x.pct));
-  const diff = aNow != null && aPrev != null ? aNow - aPrev : null;
-  const byWd = {};
-  past.forEach(x => (byWd[x.d.getDay()] = byWd[x.d.getDay()] || []).push(x.pct));
-  const wdNames = ['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
-  const wdList = Object.entries(byWd).filter(([, a]) => a.length >= 2).map(([w, a]) => [w, avg(a)]).sort((a, b) => a[1] - b[1]);
-  const kpi = (v, l, c) => `<div class="pic-kpi" style="background:#FAF8F5"><b style="color:${c}">${v}</b><span>${l}</span></div>`;
-
-  let html = `<div class="pic-kpis mb-4">
-    ${kpi(avgAll != null ? avgAll + '%' : '—', `trung bình ${trendWeeks} tuần`, avgAll != null ? pctTone2(avgAll) : '#9b9a97')}
-    ${kpi(past.length ? nHit + '/' + past.length : '—', `ngày đạt ≥ ${TARGET}%`, '#4F6A16')}
-    ${kpi(diff == null ? '—' : (diff >= 0 ? '▲ ' : '▼ ') + Math.abs(diff) + '%', diff == null ? 'tuần này so với tuần trước (chưa đủ ngày)' : 'tuần này so với tuần trước', diff == null ? '#9b9a97' : diff >= 0 ? '#4F6A16' : '#64313E')}
-    ${kpi(wdList.length ? wdNames[wdList[0][0]] : '—', wdList.length ? `ngày thường thấp nhất (TB ${wdList[0][1]}%)` : 'ngày thường thấp nhất', '#2E4466')}
-  </div>
-  <div class="border border-[#e9e9e7] rounded-[14px] px-2 pt-3 pb-1 mb-4">
-    <div class="flex gap-4 flex-wrap text-[13px] text-[#5f5e5a] px-3">
-      <span><span class="inline-block w-5 border-t-2 border-dashed border-[#B0C965] align-middle mr-1.5"></span>mục tiêu ${TARGET}%</span>
-      <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-[#B0C965] mr-1.5"></span>≥ ${TARGET_GOOD}%</span>
-      <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-[#D3E2A6] border border-[#64313E] mr-1.5"></span>${TARGET}–${TARGET_GOOD - 1}%</span>
-      <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-[#64313E] mr-1.5"></span>dưới ${TARGET}%</span>
-    </div>
-    <div id="trendChart"></div>
-  </div>`;
-
-  // Từng nhân viên
-  const names = [...new Set(days.flatMap(x => x.rows.flatMap(r => splitPIC(r.p))))].filter(n => n !== 'Chưa phân').sort((a, b) => a.localeCompare(b, 'vi'));
-  html += `<div class="text-[17px] font-bold mb-2.5">Từng nhân viên</div><div class="trend-people">`;
-  names.forEach(n => {
-    const series = days.map(x => { const pr = personRows(x.rows, n); return pr.length ? { k: x.k, today: x.today, pct: rowsPct(pr).pct } : null; });
-    const pastS = series.filter(s => s && !s.today);
-    const a = avg(pastS.map(s => s.pct));
-    const wn = avg(pastS.filter(s => weekStart(keyDate(s.k)) === wkNow).map(s => s.pct));
-    const wp = avg(pastS.filter(s => weekStart(keyDate(s.k)) === lastWk).map(s => s.pct));
-    const dd = wn != null && wp != null ? wn - wp : null;
-    html += `<div class="pic-card" style="min-width:0;padding:14px 16px">
-      <div class="flex justify-between items-baseline"><b class="text-[17px]">${esc(n)}</b><b class="text-[20px]" style="color:${a != null ? pctTone2(a) : '#9b9a97'}">${a != null ? a + '%' : '—'}</b></div>
-      <div class="text-[13px] text-[#787774] mb-1">TB ${trendWeeks} tuần · ${pastS.length} ngày${dd != null ? ` · tuần này <b style="color:${dd >= 0 ? '#4F6A16' : '#64313E'}">${dd >= 0 ? '▲' : '▼'} ${Math.abs(dd)}%</b>` : ''}</div>
-      ${sparkSVG(series)}</div>`;
-  });
-  html += `</div><div class="text-[13px] text-[#9b9a97] mt-3">Bấm vào một điểm trên biểu đồ để mở ngày đó ở tab 👥 Nhân viên · Điểm rỗng = hôm nay, đang trong ngày.</div>`;
-  body.innerHTML = html;
-  drawTrendChart(days);
-}
-
-function sparkSVG(series) {
-  const w = 240, h = 56, n = series.length;
-  const xx = i => 5 + i * (w - 10) / Math.max(n - 1, 1), yy = v => 6 + (100 - v) / 100 * (h - 12);
-  let d = '', pen = false, dots = '';
-  series.forEach((s, i) => {
-    if (!s) { pen = false; return; }
-    d += (pen ? 'L' : 'M') + xx(i).toFixed(1) + ' ' + yy(s.pct).toFixed(1) + ' '; pen = true;
-    if (i === n - 1 || s.today) dots += `<circle cx="${xx(i)}" cy="${yy(s.pct)}" r="3.5" fill="${s.today ? '#fff' : '#64313E'}" stroke="#64313E" stroke-width="1.5"/>`;
-  });
-  return `<svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="height:${h}px;display:block">
-    <line x1="0" x2="${w}" y1="${yy(TARGET)}" y2="${yy(TARGET)}" stroke="#B0C965" stroke-dasharray="3 3"/>
-    <path d="${d}" fill="none" stroke="#64313E" stroke-width="2" vector-effect="non-scaling-stroke"/>${dots}</svg>`;
-}
-
-function drawTrendChart(days) {
-  const el = document.getElementById('trendChart');
-  const W = Math.max(el.clientWidth, 300), H = 290, pl = 42, pr = 24, pt = 20, pb = 34;
-  const n = days.length;
-  const x = i => pl + (n === 1 ? (W - pl - pr) / 2 : i * (W - pl - pr) / (n - 1));
-  const y = v => pt + (100 - v) / 100 * (H - pt - pb);
-  let s = `<svg width="${W}" height="${H}" style="display:block">`;
-  [0, 25, 50, 75, 100].forEach(v => s += `<line x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}" stroke="#efede8"/><text x="${pl - 8}" y="${y(v) + 4}" text-anchor="end" font-size="12" fill="#9b9a97">${v}%</text>`);
-  s += `<line x1="${pl}" x2="${W - pr}" y1="${y(TARGET)}" y2="${y(TARGET)}" stroke="#B0C965" stroke-width="1.5" stroke-dasharray="5 4"/>`;
-  const pts = days.map((d, i) => [x(i), y(d.pct)]);
-  const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
-  if (n > 1) s += `<path d="${line} L ${x(n - 1)} ${y(0)} L ${x(0)} ${y(0)} Z" fill="#9EB4D3" opacity=".16"/><path d="${line}" fill="none" stroke="#64313E" stroke-width="2.5"/>`;
-  // nhãn mục tiêu đặt ở khoảng trống lớn nhất phía trên vạch
-  const step = Math.max(1, Math.ceil(n / 9));
-  const past = days.map((d, i) => [d, i]).filter(([d]) => !d.today);
-  const low = past.length ? past.reduce((a, b) => b[0].pct < a[0].pct ? b : a) : null;
-  days.forEach((d, i) => {
-    const fill = d.today ? '#fff' : (d.pct >= TARGET_GOOD ? '#B0C965' : d.pct >= TARGET ? '#D3E2A6' : '#64313E');
-    s += `<g class="trend-pt" data-k="${d.k}" style="cursor:pointer"><circle cx="${x(i)}" cy="${y(d.pct)}" r="12" fill="transparent"/>
-      <circle cx="${x(i)}" cy="${y(d.pct)}" r="${d.today ? 5 : 4}" fill="${fill}" stroke="#64313E" stroke-width="${d.today ? 2 : 1.5}" ${d.today ? 'stroke-dasharray="2 2"' : ''}/>
-      <title>${d.d.getDate()}/${d.d.getMonth() + 1}: ${d.pct}%${d.today ? ' (đang trong ngày)' : ''}</title></g>`;
-    if (i % step === 0 || i === n - 1) s += `<text x="${x(i)}" y="${H - 10}" text-anchor="middle" font-size="12" fill="#9b9a97">${d.d.getDate()}/${d.d.getMonth() + 1}</text>`;
-  });
-  if (low && low[0].pct < TARGET) s += `<text x="${x(low[1])}" y="${y(low[0].pct) + 22}" text-anchor="middle" font-size="12" font-weight="600" fill="#64313E">${low[0].pct}% · thấp nhất</text>`;
-  const last = days[n - 1];
-  if (last.today) s += `<text x="${x(n - 1) - 12}" y="${y(last.pct) + (last.pct > 85 ? 18 : -10)}" text-anchor="end" font-size="12.5" font-weight="700" fill="#2b2a26">Hôm nay ${last.pct}% (đang làm)</text>`;
-  s += '</svg>';
-  el.innerHTML = s;
-  el.querySelectorAll('.trend-pt').forEach(g => g.addEventListener('click', () => { picDay = g.dataset.k; showTab('pic'); }));
-}
-
-document.querySelectorAll('#trendSeg span').forEach(sp => sp.onclick = () => { trendWeeks = +sp.dataset.w; renderTrend(); });
-let _trendRT;
-window.addEventListener('resize', () => { if (currentTab !== 'trend') return; clearTimeout(_trendRT); _trendRT = setTimeout(renderTrend, 200); });
 
 // ================= CHUYỂN TAB =================
 const TAB_ON  = "px-3 py-1.5 rounded-md text-[16px] font-medium text-[#37352f] border-b-2 border-[#37352f]";
@@ -1119,25 +913,20 @@ function showTab(which) {
   document.getElementById('viewLich').classList.toggle('hidden', which !== 'lich');
   document.getElementById('viewGantt').classList.toggle('hidden', which !== 'gantt');
   document.getElementById('viewPIC').classList.toggle('hidden', which !== 'pic');
-  document.getElementById('viewTrend').classList.toggle('hidden', which !== 'trend');
   document.getElementById('tabLich').className = which === 'lich' ? TAB_ON : TAB_OFF;
   document.getElementById('tabGantt').className = which === 'gantt' ? TAB_ON : TAB_OFF;
   document.getElementById('tabPIC').className = which === 'pic' ? TAB_ON : TAB_OFF;
-  document.getElementById('tabTrend').className = which === 'trend' ? TAB_ON : TAB_OFF;
   if (which === 'gantt' && !ganttLoaded) loadGantt();
   if (which === 'pic') { if (!picLoaded) loadPIC(); else renderPIC(); }
-  if (which === 'trend') { if (!picLoaded) loadPIC(); renderTrend(); }
-  if (which === 'gantt') renderRisk();
 }
 document.getElementById('tabLich').onclick = () => showTab('lich');
 document.getElementById('tabGantt').onclick = () => showTab('gantt');
 document.getElementById('tabPIC').onclick = () => showTab('pic');
-document.getElementById('tabTrend').onclick = () => showTab('trend');
 
 // Nút Làm mới: làm mới đúng chế độ đang xem
 document.getElementById('refreshBtn').onclick = () => {
   if (currentTab === 'gantt') loadGantt(true);
-  else if (currentTab === 'pic' || currentTab === 'trend') loadPIC(true);
+  else if (currentTab === 'pic') loadPIC(true);
   else loadData();
 };
 
